@@ -143,12 +143,20 @@ function ensureFortnights() {
     state.activeFortnightKey = state.fortnights[0].key;
   }
 
-  const activeFortnight = getActiveFortnight();
+  const activeFortnight = state.fortnights.find((fortnight) => fortnight.key === state.activeFortnightKey) || state.fortnights[0];
   state.timesheetDays = activeFortnight.days;
 }
 
 function getActiveFortnight() {
-  ensureFortnights();
+  if (!Array.isArray(state.fortnights) || !state.fortnights.length) {
+    ensureFortnights();
+    return state.fortnights[0] || null;
+  }
+
+  if (!state.activeFortnightKey || !state.fortnights.some((fortnight) => fortnight.key === state.activeFortnightKey)) {
+    state.activeFortnightKey = state.fortnights[0].key;
+  }
+
   return state.fortnights.find((fortnight) => fortnight.key === state.activeFortnightKey) || state.fortnights[0];
 }
 
