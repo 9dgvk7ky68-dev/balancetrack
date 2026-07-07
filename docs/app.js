@@ -271,6 +271,62 @@ function formatDate(dateString) {
   });
 }
 
+function toTimeString(totalMinutes) {
+  const bounded = Math.max(0, Math.min(totalMinutes, 23 * 60 + 59));
+  const hours = Math.floor(bounded / 60);
+  const minutes = bounded % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function applyExtraTimeToDay(day, hoursToAdd) {
+  const minutesToAdd = Math.round(hoursToAdd * 60);
+
+  if (!day.start) {
+    day.start = state.settings.defaultStartTime || '08:00';
+  }
+
+  const startMinutes = toMinutes(day.start);
+  if (!day.finish) {
+    const baseHours = day.isWeekend ? 0 : 8.5;
+    day.finish = toTimeString(startMinutes + Math.round((baseHours + hoursToAdd) * 60));
+    return;
+  }
+
+  const finishMinutes = toMinutes(day.finish);
+  day.finish = toTimeString(finishMinutes + minutesToAdd);
+}
+
+function applyExtraTimeToDate(dateString, hoursToAdd) {
+  const currentDay = state.timesheetDays.find((day) => day.date === dateString);
+  if (currentDay) {
+    applyExtraTimeToDay(currentDay, hoursToAdd);
+    saveCurrentFortnight();
+    return true;
+  }
+
+  for (const [key, days] of Object.entries(state.fortnightData)) {
+    if (!Array.isArray(days)) continue;
+    const targetDay = days.find((day) => day.date === dateString);
+    if (!targetDay) continue;
+
+    applyExtraTimeToDay(targetDay, hoursToAdd);
+    state.fortnightData[key] = days;
+    saveState();
+    return true;
+  }
+
+  const startDate = getFortnightStartFromDate(dateString);
+  const key = getFortnightKey(startDate);
+  const createdDays = buildFortnightDays(startDate);
+  const createdDay = createdDays.find((day) => day.date === dateString);
+  if (!createdDay) return false;
+
+  applyExtraTimeToDay(createdDay, hoursToAdd);
+  state.fortnightData[key] = createdDays;
+  saveState();
+  return true;
+}
+
 function addEntry(type, action, amount, note) {
   state.entries.unshift({
     id: crypto.randomUUID(),
@@ -423,7 +479,33 @@ function addTtbQuickEntry(action) {
       return;
     }
 
-    note = selectedReason;
+    if (selectedReason === 'Extra time worked') {
+      const defaultDate = formatLocalDate(new Date());
+      const chosenDate = window.prompt('Enter date for this extra time (YYYY-MM-DD)', defaultDate);
+      if (chosenDate === null) return;
+
+      const normalizedDate = String(chosenDate).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+        window.alert('Please enter the date in YYYY-MM-DD format.');
+        return;
+      }
+
+      const parsedDate = parseLocalDate(normalizedDate);
+      if (formatLocalDate(parsedDate) !== normalizedDate) {
+        window.alert('Please enter a valid date in YYYY-MM-DD format.');
+        return;
+      }
+
+      const applied = applyExtraTimeToDate(normalizedDate, parsedValue);
+      if (!applied) {
+        window.alert('Could not apply extra time to that date. Please try again.');
+        return;
+      }
+
+      note = `${selectedReason} (${normalizedDate})`;
+    } else {
+      note = selectedReason;
+    }
   }
 
   addEntry('ttb', action, parsedValue, note);
