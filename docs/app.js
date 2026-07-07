@@ -33,7 +33,6 @@ const entryList = document.getElementById('entryList');
 const emptyState = document.getElementById('emptyState');
 const timesheetDaysEl = document.getElementById('timesheetDays');
 const timesheetTitleEl = document.getElementById('timesheetTitle');
-const clearButton = document.getElementById('clearButton');
 const prevFortnightBtn = document.getElementById('prevFortnightBtn');
 const nextFortnightBtn = document.getElementById('nextFortnightBtn');
 const resetSelectedFortnightBtn = document.getElementById('resetSelectedFortnightBtn');
@@ -567,15 +566,6 @@ addTtbBtn.addEventListener('click', () => addTtbQuickEntry('earned'));
 useTtbBtn.addEventListener('click', () => addTtbQuickEntry('used'));
 addDayBtn.addEventListener('click', () => addEntry('day', 'earned', 1, 'Quick day add'));
 useDayBtn.addEventListener('click', () => addEntry('day', 'used', 1, 'Quick day use'));
-
-clearButton.addEventListener('click', () => {
-  if (!state.entries.length) return;
-  if (window.confirm('Clear all entries?')) {
-    state.entries = [];
-    saveState();
-    render();
-  }
-});
 
 prevFortnightBtn.addEventListener('click', () => {
   const anchor = parseLocalDate(state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek()));
