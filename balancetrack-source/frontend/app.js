@@ -401,7 +401,32 @@ function addTtbQuickEntry(action) {
     window.alert('Please enter a positive value in quarter-hour increments such as 0.25, 0.5, 0.75, or 1.');
     return;
   }
-  addEntry('ttb', action, parsedValue, action === 'earned' ? 'Quick TTB add' : 'Quick TTB use');
+
+  let note = action === 'earned' ? 'Quick TTB add' : 'Quick TTB use';
+  if (action === 'earned') {
+    const reasonPrompt = window.prompt(
+      'Select reason for adding TTB:\n1. No lunch taken\n2. Additional travel due to traffic/accident\n3. Extra time worked',
+      '1'
+    );
+
+    if (reasonPrompt === null) return;
+
+    const reasonMap = {
+      1: 'No lunch taken',
+      2: 'Additional travel due to traffic/accident',
+      3: 'Extra time worked',
+    };
+
+    const selectedReason = reasonMap[Number(String(reasonPrompt).trim())];
+    if (!selectedReason) {
+      window.alert('Please choose 1, 2, or 3 for the TTB reason.');
+      return;
+    }
+
+    note = selectedReason;
+  }
+
+  addEntry('ttb', action, parsedValue, note);
 }
 
 addTtbBtn.addEventListener('click', () => addTtbQuickEntry('earned'));
