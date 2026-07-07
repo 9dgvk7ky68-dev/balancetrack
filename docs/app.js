@@ -13,6 +13,8 @@ const defaultState = {
     defaultStartTime: '08:00',
     defaultFinishTime: '16:30',
   },
+  fortnights: [],
+  activeFortnightKey: null,
   timesheetDays: [],
 };
 
@@ -30,6 +32,9 @@ const emptyState = document.getElementById('emptyState');
 const timesheetDaysEl = document.getElementById('timesheetDays');
 const clearButton = document.getElementById('clearButton');
 const resetTimesheetBtn = document.getElementById('resetTimesheetBtn');
+const prevFortnightBtn = document.getElementById('prevFortnightBtn');
+const nextFortnightBtn = document.getElementById('nextFortnightBtn');
+const fortnightLabelEl = document.getElementById('fortnightLabel');
 const addTtbBtn = document.getElementById('addTtbBtn');
 const useTtbBtn = document.getElementById('useTtbBtn');
 const addDayBtn = document.getElementById('addDayBtn');
@@ -44,11 +49,18 @@ function loadState() {
       return structuredClone(defaultState);
     }
     const parsed = JSON.parse(raw);
+    const legacyDays = Array.isArray(parsed.timesheetDays) ? parsed.timesheetDays : [];
+    const fortnights = Array.isArray(parsed.fortnights) && parsed.fortnights.length
+      ? parsed.fortnights
+      : (legacyDays.length ? [{ key: getMondayOfCurrentWeek().toISOString().slice(0, 10), startDate: getMondayOfCurrentWeek().toISOString().slice(0, 10), label: '', days: legacyDays }] : []);
+
     return {
       entries: Array.isArray(parsed.entries) ? parsed.entries : [],
       profile: { ...defaultState.profile, ...(parsed.profile || {}) },
       settings: { ...defaultState.settings, ...(parsed.settings || {}) },
-      timesheetDays: Array.isArray(parsed.timesheetDays) ? parsed.timesheetDays : [],
+      fortnights,
+      activeFortnightKey: parsed.activeFortnightKey || (fortnights[0] && fortnights[0].key) || null,
+      timesheetDays: legacyDays,
     };
   } catch (error) {
     console.warn('Could not load state', error);
@@ -69,8 +81,8 @@ function getMondayOfCurrentWeek(reference = new Date()) {
   return date;
 }
 
-function buildFortnightDays() {
-  const start = getMondayOfCurrentWeek();
+function buildFortnightDays(referenceDate = getMondayOfCurrentWeek()) {
+  const start = getMondayOfCurrentWeek(referenceDate);
   return Array.from({ length: 14 }, (_, index) => {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
@@ -87,11 +99,91 @@ function buildFortnightDays() {
   });
 }
 
-function ensureTimesheetDays() {
-  if (!state.timesheetDays || state.timesheetDays.length !== 14) {
-    state.timesheetDays = buildFortnightDays();
+function formatFortnightLabel(startDate) {
+  const start = new Date(startDate);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 13);
+  return `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+}
+
+function createFortnight(startDate = getMondayOfCurrentWeek()) {
+  const monday = getMondayOfCurrentWeek(startDate);
+  const startKey = monday.toISOString().slice(0, 10);
+  return {
+    key: startKey,
+    startDate: startKey,
+    label: formatFortnightLabel(monday),
+    days: buildFortnightDays(monday),
+  };
+}
+
+function ensureFortnights() {
+  if (!Array.isArray(state.fortnights) || !state.fortnights.length) {
+    const currentFortnight = createFortnight();
+    state.fortnights = [currentFortnight];
+    state.activeFortnightKey = currentFortnight.key;
+    state.timesheetDays = currentFortnight.days;
     saveState();
+    return;
   }
+
+  state.fortnights = state.fortnights.map((fortnight) => {
+    const startDate = fortnight.startDate || fortnight.key || getMondayOfCurrentWeek().toISOString().slice(0, 10);
+    const key = fortnight.key || startDate;
+    return {
+      ...fortnight,
+      key,
+      startDate,
+      label: fortnight.label || formatFortnightLabel(startDate),
+      days: Array.isArray(fortnight.days) && fortnight.days.length === 14 ? fortnight.days : createFortnight(startDate).days,
+    };
+  });
+
+  if (!state.activeFortnightKey || !state.fortnights.some((fortnight) => fortnight.key === state.activeFortnightKey)) {
+    state.activeFortnightKey = state.fortnights[0].key;
+  }
+
+  const activeFortnight = getActiveFortnight();
+  state.timesheetDays = activeFortnight.days;
+}
+
+function getActiveFortnight() {
+  ensureFortnights();
+  return state.fortnights.find((fortnight) => fortnight.key === state.activeFortnightKey) || state.fortnights[0];
+}
+
+function navigateFortnight(direction) {
+  ensureFortnights();
+  const currentIndex = state.fortnights.findIndex((fortnight) => fortnight.key === state.activeFortnightKey);
+  const nextIndex = currentIndex + direction;
+
+  if (nextIndex < 0) {
+    const firstFortnight = state.fortnights[0];
+    const startDate = new Date(firstFortnight.startDate || firstFortnight.key);
+    startDate.setDate(startDate.getDate() - 14);
+    const newFortnight = createFortnight(startDate);
+    state.fortnights.unshift(newFortnight);
+    state.activeFortnightKey = newFortnight.key;
+    saveState();
+    render();
+    return;
+  }
+
+  if (nextIndex >= state.fortnights.length) {
+    const lastFortnight = state.fortnights[state.fortnights.length - 1];
+    const startDate = new Date(lastFortnight.startDate || lastFortnight.key);
+    startDate.setDate(startDate.getDate() + 14);
+    const newFortnight = createFortnight(startDate);
+    state.fortnights.push(newFortnight);
+    state.activeFortnightKey = newFortnight.key;
+    saveState();
+    render();
+    return;
+  }
+
+  state.activeFortnightKey = state.fortnights[nextIndex].key;
+  saveState();
+  render();
 }
 
 function toMinutes(time) {
@@ -123,11 +215,11 @@ function calculateDayHours(day) {
   };
 }
 
-function recalculateTimesheet() {
+function recalculateTimesheet(fortnight = getActiveFortnight()) {
   let totalWorked = 0;
   let totalOT = 0;
 
-  state.timesheetDays.forEach((day) => {
+  fortnight.days.forEach((day) => {
     const values = calculateDayHours(day);
     day.workedHours = values.workedHours;
     day.overtime = values.overtime;
@@ -148,7 +240,7 @@ function calculateBalances() {
     { ttb: Number(state.settings.startingTtb || 0), day: Number(state.settings.startingDay || 0) }
   );
 
-  const { totalOT } = recalculateTimesheet();
+  const totalOT = state.fortnights.reduce((sum, fortnight) => sum + recalculateTimesheet(fortnight).totalOT, 0);
   manualNet.ttb += totalOT;
   return manualNet;
 }
@@ -219,7 +311,8 @@ function renderDashboard() {
   ttbBalanceDaysEl.textContent = `${ttbDays.toFixed(2)} days`;
   dayBalanceEl.textContent = `${balances.day.toFixed(1)}d`;
 
-  const { totalWorked, totalOT } = recalculateTimesheet();
+  const activeFortnight = getActiveFortnight();
+  const { totalWorked, totalOT } = recalculateTimesheet(activeFortnight);
   fortnightSummaryEl.textContent = `${totalWorked.toFixed(1)}h worked`;
   fortnightOtEl.textContent = `${totalOT.toFixed(1)}h OT accrued`;
 
@@ -254,7 +347,9 @@ function renderEntries() {
 }
 
 function renderTimesheet() {
-  timesheetDaysEl.innerHTML = state.timesheetDays
+  const activeFortnight = getActiveFortnight();
+  fortnightLabelEl.textContent = activeFortnight.label || formatFortnightLabel(activeFortnight.startDate);
+  timesheetDaysEl.innerHTML = activeFortnight.days
     .map((day, index) => {
       const daySummary = calculateDayHours(day);
       return `
@@ -291,7 +386,7 @@ function renderProfile() {
 }
 
 function render() {
-  ensureTimesheetDays();
+  ensureFortnights();
   renderDashboard();
   renderEntries();
   renderTimesheet();
@@ -333,10 +428,14 @@ clearButton.addEventListener('click', () => {
 });
 
 resetTimesheetBtn.addEventListener('click', () => {
-  state.timesheetDays = buildFortnightDays();
+  const activeFortnight = getActiveFortnight();
+  activeFortnight.days = buildFortnightDays(activeFortnight.startDate);
   saveState();
   render();
 });
+
+prevFortnightBtn.addEventListener('click', () => navigateFortnight(-1));
+nextFortnightBtn.addEventListener('click', () => navigateFortnight(1));
 
 tabButtons.forEach((button) => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
@@ -361,7 +460,8 @@ settingsForm.addEventListener('input', (event) => {
   saveState();
 
   if (name === 'defaultStartTime' || name === 'defaultFinishTime') {
-    state.timesheetDays = state.timesheetDays.map((day) => {
+    const activeFortnight = getActiveFortnight();
+    activeFortnight.days = activeFortnight.days.map((day) => {
       if (day.isWeekend) return day;
       const currentStart = day.start || state.settings.defaultStartTime || '08:00';
       const currentFinish = day.finish || state.settings.defaultFinishTime || '16:30';
@@ -382,9 +482,10 @@ settingsForm.addEventListener('input', (event) => {
 timesheetDaysEl.addEventListener('change', (event) => {
   const row = event.target.closest('.timesheet-row');
   if (!row) return;
+  const activeFortnight = getActiveFortnight();
   const index = Number(row.dataset.index);
   const field = event.target.dataset.field;
-  state.timesheetDays[index][field] = event.target.value;
+  activeFortnight.days[index][field] = event.target.value;
   saveState();
   render();
 });

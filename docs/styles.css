@@ -267,6 +267,22 @@ select {
   color: var(--text);
 }
 
+.fortnight-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.fortnight-label {
+  text-align: center;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--accent);
+  flex: 1;
+}
+
 .timesheet-meta {
   display: grid;
   gap: 4px;
@@ -403,6 +419,10 @@ select {
 
   .tab-nav {
     gap: 10px;
+  }
+
+  .fortnight-nav {
+    flex-direction: column;
   }
 
   .timesheet-row {
