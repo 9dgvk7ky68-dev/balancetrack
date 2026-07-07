@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#5f8f68" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="BalanceTrack" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>BalanceTrack</title>
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="icon" href="./icons/icon-192.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <div id="installBanner" class="install-banner" hidden>
+        <div>
+          <strong>Install BalanceTrack</strong>
+          <p>Add it to your home screen for a full app-like experience.</p>
+        </div>
+        <div class="install-banner-actions">
+          <button id="installBannerInstall" class="btn btn-secondary">Install</button>
+          <button id="installBannerDismiss" class="btn btn-ghost">Later</button>
+        </div>
+      </div>
+      <div class="phone-shell">
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Work-life balance tracker</p>
+            <h1>BalanceTrack</h1>
+            <p class="hero-copy">Track overtime, leave, and your fortnight hours in one calm place.</p>
+          </div>
+        </header>
+
+        <nav class="tab-nav" aria-label="Main sections">
+          <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+          <button class="tab-btn" data-tab="timesheet">Timesheet</button>
+          <button class="tab-btn" data-tab="settings">Settings</button>
+        </nav>
+
+        <main>
+          <section id="dashboardView" class="view active">
+            <div class="summary-grid">
+              <article class="card highlight">
+                <p>TTB balance</p>
+                <strong id="ttbBalance">0.0h</strong>
+                <div class="quick-actions">
+                  <button class="btn btn-secondary" id="addTtbBtn">Add TTB</button>
+                  <button class="btn btn-ghost" id="useTtbBtn">Use TTB</button>
+                </div>
+              </article>
+              <article class="card">
+                <p>Days in lieu</p>
+                <strong id="dayBalance">0.0d</strong>
+                <div class="quick-actions">
+                  <button class="btn btn-secondary" id="addDayBtn">Add day</button>
+                  <button class="btn btn-ghost" id="useDayBtn">Use day</button>
+                </div>
+              </article>
+              <article class="card">
+                <p>Fortnight summary</p>
+                <strong id="fortnightSummary">0.0h worked</strong>
+                <span id="fortnightOt">0.0h OT accrued</span>
+              </article>
+              <article class="card">
+                <p>Latest entry</p>
+                <strong id="latestEntry">No entries yet</strong>
+                <span>Most recent manual change</span>
+              </article>
+            </div>
+
+            <section class="card history-card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Activity</p>
+                  <h2>Recent entries</h2>
+                </div>
+                <button id="clearButton" class="btn btn-ghost">Clear all</button>
+              </div>
+              <div id="emptyState" class="empty-state">No entries yet. Add a quick balance adjustment or update the timesheet.</div>
+              <ul id="entryList" class="entry-list"></ul>
+            </section>
+          </section>
+
+          <section id="timesheetView" class="view">
+            <div class="card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Fortnight</p>
+                  <h2>Work hours</h2>
+                </div>
+                <button id="resetTimesheetBtn" class="btn btn-secondary">Reset to standard</button>
+              </div>
+              <div class="timesheet-meta">
+                <span>Standard weekdays: 08:00 to 16:30</span>
+                <span>Breaks: 0.5h paid lunch + 0.5h unpaid break</span>
+              </div>
+              <div id="timesheetDays" class="timesheet-days"></div>
+            </div>
+          </section>
+
+          <section id="settingsView" class="view">
+            <div class="card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Profile</p>
+                  <h2>Staff details</h2>
+                </div>
+              </div>
+              <form id="profileForm" class="settings-form">
+                <label>
+                  Staff member
+                  <input id="staffName" name="staffName" type="text" placeholder="Name" />
+                </label>
+                <label>
+                  Manager
+                  <input id="managerName" name="managerName" type="text" placeholder="Manager name" />
+                </label>
+                <label>
+                  Role
+                  <input id="role" name="role" type="text" placeholder="Role" />
+                </label>
+                <label>
+                  Department
+                  <input id="department" name="department" type="text" placeholder="Department" />
+                </label>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebroom">Defaults</p>
+                  <h2>Starting values</h2>
+                </div>
+              </div>
+              <form id="settingsForm" class="settings-form">
+                <label>
+                  Starting TTB balance
+                  <input id="startingTtb" name="startingTtb" type="number" step="0.25" />
+                </label>
+                <label>
+                  Starting days in lieu
+                  <input id="startingDay" name="startingDay" type="number" step="0.25" />
+                </label>
+              </form>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

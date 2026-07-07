@@ -1,0 +1,401 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f7f1;
+  --panel: #ffffff;
+  --panel-soft: #f7fbf4;
+  --border: #dfe9db;
+  --text: #17212b;
+  --muted: #64756a;
+  --accent: #5f8f68;
+  --accent-2: #8dbb8a;
+  --accent-soft: rgba(95, 143, 104, 0.15);
+  --warning: #d9a34d;
+  --danger: #d76b59;
+  --shadow: 0 18px 45px rgba(45, 64, 47, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(141, 187, 138, 0.18), transparent 28%),
+    linear-gradient(135deg, #f8fbf6 0%, var(--bg) 55%, #eef4ea 100%);
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.app-shell {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 16px 12px 28px;
+}
+
+.phone-shell {
+  position: relative;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--border);
+  border-radius: 36px;
+  box-shadow: var(--shadow);
+  padding: 16px 14px 18px;
+  backdrop-filter: blur(18px);
+}
+
+.phone-shell::before {
+  content: "";
+  display: block;
+  width: 96px;
+  height: 7px;
+  border-radius: 999px;
+  background: #dfe8db;
+  margin: 2px auto 14px;
+}
+
+.install-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(95, 143, 104, 0.16), rgba(141, 187, 138, 0.1));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.install-banner p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.install-banner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  background: linear-gradient(135deg, #ffffff 0%, var(--panel-soft) 100%);
+  border: 1px solid var(--border);
+  padding: 16px;
+  border-radius: 22px;
+  margin-bottom: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  line-height: 1.1;
+}
+
+.hero-copy {
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.tab-nav {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tab-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: transparent;
+}
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+}
+
+.btn {
+  border: none;
+  border-radius: 999px;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: transform 180ms ease, background 180ms ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: white;
+}
+
+.btn-secondary {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.btn-ghost {
+  background: rgba(23, 33, 43, 0.04);
+  color: var(--text);
+}
+
+.summary-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 8px 20px rgba(19, 34, 24, 0.05);
+}
+
+.card.highlight {
+  background: linear-gradient(135deg, rgba(95, 143, 104, 0.14), rgba(141, 187, 138, 0.08));
+}
+
+.card p {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.card strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.28rem;
+  line-height: 1.2;
+}
+
+.card span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.settings-form {
+  display: grid;
+  gap: 10px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  color: var(--text);
+}
+
+.timesheet-meta {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.timesheet-days {
+  display: grid;
+  gap: 8px;
+}
+
+.timesheet-row {
+  display: grid;
+  grid-template-columns: 1.1fr 0.7fr 0.7fr 0.45fr 0.45fr;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px;
+  background: var(--panel-soft);
+}
+
+.date-cell {
+  display: grid;
+  gap: 2px;
+}
+
+.date-cell span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.time-input {
+  display: grid;
+  gap: 2px;
+  font-size: 0.8rem;
+}
+
+.time-input input {
+  padding: 7px 8px;
+  font-size: 0.88rem;
+}
+
+.hours-pill,
+.ot-pill {
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 6px 8px;
+  border-radius: 999px;
+  text-align: center;
+}
+
+.hours-pill {
+  background: rgba(95, 143, 104, 0.12);
+  color: #4d7351;
+}
+
+.ot-pill {
+  background: rgba(215, 107, 89, 0.12);
+  color: #9f4f41;
+}
+
+.empty-state {
+  padding: 14px 0 8px;
+  color: var(--muted);
+}
+
+.entry-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.entry-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel-soft);
+}
+
+.entry-item strong {
+  font-size: 1rem;
+}
+
+.entry-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.entry-pill {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.entry-pill.earned {
+  background: rgba(95, 143, 104, 0.16);
+  color: #4d7351;
+}
+
+.entry-pill.used {
+  background: rgba(215, 107, 89, 0.14);
+  color: #9f4f41;
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 10px 8px 20px;
+  }
+
+  .phone-shell {
+    padding: 12px 10px 14px;
+    border-radius: 24px;
+  }
+
+  .hero {
+    padding: 14px;
+  }
+
+  .install-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tab-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .timesheet-row {
+    grid-template-columns: 1fr;
+  }
+
+  .entry-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
