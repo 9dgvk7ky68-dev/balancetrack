@@ -347,7 +347,7 @@ profileForm.addEventListener('input', (event) => {
 
 settingsForm.addEventListener('input', (event) => {
   const { name, value } = event.target;
-  if (name === 'startingTtb') {
+  if (name === 'startingTtb' || name === 'startingDay') {
     const parsed = parseQuarterHourValue(value);
     state.settings[name] = parsed ?? 0;
   } else if (name === 'defaultStartTime' || name === 'defaultFinishTime') {
