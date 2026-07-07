@@ -332,7 +332,12 @@ profileForm.addEventListener('input', (event) => {
 
 settingsForm.addEventListener('input', (event) => {
   const { name, value } = event.target;
-  state.settings[name] = Number(value) || 0;
+  if (name === 'startingTtb') {
+    const parsed = parseQuarterHourValue(value);
+    state.settings[name] = parsed ?? 0;
+  } else {
+    state.settings[name] = Number(value) || 0;
+  }
   saveState();
   render();
 });
