@@ -243,6 +243,13 @@ h1 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  gap: 10px;
+}
+
+.timesheet-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .settings-form {
@@ -265,22 +272,6 @@ select {
   border: 1px solid var(--border);
   background: var(--panel-soft);
   color: var(--text);
-}
-
-.fortnight-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.fortnight-label {
-  text-align: center;
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--accent);
-  flex: 1;
 }
 
 .timesheet-meta {
@@ -419,10 +410,6 @@ select {
 
   .tab-nav {
     gap: 10px;
-  }
-
-  .fortnight-nav {
-    flex-direction: column;
   }
 
   .timesheet-row {

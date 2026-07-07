@@ -78,14 +78,13 @@
               <div class="section-head">
                 <div>
                   <p class="eyebrow">Fortnight</p>
-                  <h2>Work hours</h2>
+                  <h2 id="timesheetTitle">Work hours</h2>
                 </div>
-                <button id="resetTimesheetBtn" class="btn btn-secondary">Reset to standard</button>
-              </div>
-              <div class="fortnight-nav">
-                <button id="prevFortnightBtn" class="btn btn-ghost">← Previous</button>
-                <div id="fortnightLabel" class="fortnight-label">Current fortnight</div>
-                <button id="nextFortnightBtn" class="btn btn-ghost">Next →</button>
+                <div class="timesheet-actions">
+                  <button id="prevFortnightBtn" class="btn btn-ghost" type="button">←</button>
+                  <button id="resetTimesheetBtn" class="btn btn-secondary" type="button">Reset to standard</button>
+                  <button id="nextFortnightBtn" class="btn btn-ghost" type="button">→</button>
+                </div>
               </div>
               <div class="timesheet-meta">
                 <span>Standard weekdays: 08:00 to 16:30</span>
