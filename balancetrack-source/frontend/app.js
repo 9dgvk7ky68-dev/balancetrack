@@ -19,7 +19,7 @@ const defaultState = {
 };
 
 const state = loadState();
-state.currentFortnightKey = state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek());
+state.currentFortnightKey = getFortnightKey(getMondayOfCurrentWeek());
 state.fortnightData = state.fortnightData || {};
 const tabButtons = document.querySelectorAll('.tab-btn');
 const views = document.querySelectorAll('.view');
@@ -86,6 +86,14 @@ function formatLocalDate(date) {
   return `${year}-${month}-${day}`;
 }
 
+function parseLocalDate(dateString) {
+  if (typeof dateString !== 'string' || dateString.length !== 10) {
+    return new Date();
+  }
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function formatLongDate(dateString) {
   const normalizedDate = typeof dateString === 'string' && dateString.length === 10
     ? `${dateString}T12:00:00`
@@ -142,7 +150,7 @@ function ensureTimesheetDays() {
 
 function getFortnightStartFromDate(selectedDate) {
   const referenceStart = getMondayOfCurrentWeek();
-  const selected = new Date(selectedDate);
+  const selected = parseLocalDate(selectedDate);
   selected.setHours(0, 0, 0, 0);
   const diffDays = Math.round((selected - referenceStart) / 86400000);
   const offset = Math.floor(diffDays / 14);
@@ -411,14 +419,14 @@ clearButton.addEventListener('click', () => {
 });
 
 prevFortnightBtn.addEventListener('click', () => {
-  const anchor = new Date(state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek()));
+  const anchor = parseLocalDate(state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek()));
   anchor.setDate(anchor.getDate() - 14);
   setCurrentFortnight(anchor);
   render();
 });
 
 nextFortnightBtn.addEventListener('click', () => {
-  const anchor = new Date(state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek()));
+  const anchor = parseLocalDate(state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek()));
   anchor.setDate(anchor.getDate() + 14);
   setCurrentFortnight(anchor);
   render();
