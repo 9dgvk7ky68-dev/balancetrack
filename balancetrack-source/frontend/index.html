@@ -166,6 +166,31 @@
             <div class="card">
               <div class="section-head">
                 <div>
+                  <p class="eyebrow">Account</p>
+                  <h2>Email sign in</h2>
+                </div>
+              </div>
+              <form id="authForm" class="settings-form">
+                <label>
+                  Email
+                  <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" />
+                </label>
+                <label>
+                  Password
+                  <input id="authPassword" type="password" autocomplete="current-password" placeholder="At least 8 characters" />
+                </label>
+                <div class="auth-actions">
+                  <button id="authSignUpBtn" class="btn btn-secondary" type="button">Register</button>
+                  <button id="authSignInBtn" class="btn btn-ghost" type="button">Sign in</button>
+                  <button id="authSignOutBtn" class="btn btn-ghost" type="button">Sign out</button>
+                </div>
+                <span id="authStatus" class="auth-status">Option 1 enabled: UI ready for email auth connection.</span>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="section-head">
+                <div>
                   <p class="eyebrow">Export</p>
                   <h2>TTB spreadsheet</h2>
                 </div>

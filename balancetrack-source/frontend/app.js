@@ -38,6 +38,12 @@ const nextFortnightBtn = document.getElementById('nextFortnightBtn');
 const resetSelectedFortnightBtn = document.getElementById('resetSelectedFortnightBtn');
 const resetFortnightDateEl = document.getElementById('resetFortnightDate');
 const exportTtbBtn = document.getElementById('exportTtbBtn');
+const authEmailEl = document.getElementById('authEmail');
+const authPasswordEl = document.getElementById('authPassword');
+const authSignUpBtn = document.getElementById('authSignUpBtn');
+const authSignInBtn = document.getElementById('authSignInBtn');
+const authSignOutBtn = document.getElementById('authSignOutBtn');
+const authStatusEl = document.getElementById('authStatus');
 const addTtbBtn = document.getElementById('addTtbBtn');
 const useTtbBtn = document.getElementById('useTtbBtn');
 const addDayBtn = document.getElementById('addDayBtn');
@@ -378,6 +384,29 @@ function exportTtbCsv() {
   downloadCsvFile(`ttb-export-${exportDate}.csv`, rows);
 }
 
+function setAuthStatus(message, isError = false) {
+  if (!authStatusEl) return;
+  authStatusEl.textContent = message;
+  authStatusEl.style.color = isError ? 'var(--danger)' : 'var(--muted)';
+}
+
+function validateAuthInputs() {
+  const email = String(authEmailEl?.value || '').trim();
+  const password = String(authPasswordEl?.value || '');
+
+  if (!email || !/.+@.+\..+/.test(email)) {
+    setAuthStatus('Enter a valid email address.', true);
+    return null;
+  }
+
+  if (password.length < 8) {
+    setAuthStatus('Password must be at least 8 characters.', true);
+    return null;
+  }
+
+  return { email, password };
+}
+
 function addEntry(type, action, amount, note) {
   state.entries.unshift({
     id: crypto.randomUUID(),
@@ -607,6 +636,26 @@ resetSelectedFortnightBtn.addEventListener('click', () => {
 
 exportTtbBtn.addEventListener('click', () => {
   exportTtbCsv();
+});
+
+authSignUpBtn.addEventListener('click', () => {
+  const values = validateAuthInputs();
+  if (!values) return;
+
+  setAuthStatus('Registration UI is ready. Next step is connecting Supabase Auth for real cross-device sync.');
+});
+
+authSignInBtn.addEventListener('click', () => {
+  const values = validateAuthInputs();
+  if (!values) return;
+
+  setAuthStatus('Sign-in UI is ready. Next step is connecting Supabase Auth for real cross-device sync.');
+});
+
+authSignOutBtn.addEventListener('click', () => {
+  if (authEmailEl) authEmailEl.value = '';
+  if (authPasswordEl) authPasswordEl.value = '';
+  setAuthStatus('Signed out locally. CSV export remains available as backup.');
 });
 
 tabButtons.forEach((button) => {
