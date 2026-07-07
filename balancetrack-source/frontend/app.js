@@ -500,11 +500,26 @@ settingsForm.addEventListener('input', (event) => {
 timesheetDaysEl.addEventListener('change', (event) => {
   const row = event.target.closest('.timesheet-row');
   if (!row) return;
+
   const index = Number(row.dataset.index);
   const field = event.target.dataset.field;
-  state.timesheetDays[index][field] = event.target.value;
+  const day = state.timesheetDays[index];
+  if (!day) return;
+
+  day[field] = event.target.value;
   saveCurrentFortnight();
-  render();
+
+  const daySummary = calculateDayHours(day);
+  const hoursPill = row.querySelector('.hours-pill');
+  const otPill = row.querySelector('.ot-pill');
+  if (hoursPill) {
+    hoursPill.textContent = `${daySummary.workedHours.toFixed(1)}h`;
+  }
+  if (otPill) {
+    otPill.textContent = `${daySummary.overtime.toFixed(1)}h OT`;
+  }
+
+  renderDashboard();
 });
 
 if ('serviceWorker' in navigator) {
