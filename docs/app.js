@@ -73,7 +73,7 @@ function saveState() {
 function getMondayOfCurrentWeek(reference = new Date()) {
   const date = new Date(reference);
   const day = date.getDay();
-  const diff = day === 0 ? -6 : day - 1;
+  const diff = day === 0 ? 6 : day - 1;
   date.setDate(date.getDate() - diff);
   date.setHours(0, 0, 0, 0);
   return date;
@@ -305,12 +305,14 @@ function renderEntries() {
 }
 
 function renderTimesheet() {
-  const startDate = state.timesheetDays[0]?.date;
-  const endDate = state.timesheetDays[state.timesheetDays.length - 1]?.date;
-  const rangeLabel = startDate && endDate
-    ? `${formatDate(startDate)} – ${formatDate(endDate)}`
+  const firstWeekStart = state.timesheetDays[0]?.date;
+  const firstWeekEnd = state.timesheetDays[6]?.date;
+  const secondWeekStart = state.timesheetDays[7]?.date;
+  const secondWeekEnd = state.timesheetDays[state.timesheetDays.length - 1]?.date;
+  const rangeLabel = firstWeekStart && firstWeekEnd && secondWeekStart && secondWeekEnd
+    ? `Week 1: ${formatDate(firstWeekStart)} – ${formatDate(firstWeekEnd)}<br>Week 2: ${formatDate(secondWeekStart)} – ${formatDate(secondWeekEnd)}`
     : 'Work hours';
-  timesheetTitleEl.textContent = rangeLabel;
+  timesheetTitleEl.innerHTML = rangeLabel;
 
   timesheetDaysEl.innerHTML = state.timesheetDays
     .map((day, index) => {
