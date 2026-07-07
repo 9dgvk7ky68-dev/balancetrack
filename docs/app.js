@@ -10,6 +10,8 @@ const defaultState = {
   settings: {
     startingTtb: 0,
     startingDay: 0,
+    defaultStartTime: '08:00',
+    defaultFinishTime: '16:30',
   },
   timesheetDays: [],
 };
@@ -76,8 +78,8 @@ function buildFortnightDays() {
       date: date.toISOString().slice(0, 10),
       label: date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
       isWeekend,
-      start: isWeekend ? '' : '08:00',
-      finish: isWeekend ? '' : '16:30',
+      start: isWeekend ? '' : state.settings.defaultStartTime || '08:00',
+      finish: isWeekend ? '' : state.settings.defaultFinishTime || '16:30',
       workedHours: isWeekend ? 0 : 8,
       overtime: 0,
     };
@@ -270,6 +272,8 @@ function renderProfile() {
   document.getElementById('department').value = state.profile.department;
   document.getElementById('startingTtb').value = state.settings.startingTtb;
   document.getElementById('startingDay').value = state.settings.startingDay;
+  document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
+  document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
 }
 
 function render() {
@@ -335,10 +339,29 @@ settingsForm.addEventListener('input', (event) => {
   if (name === 'startingTtb') {
     const parsed = parseQuarterHourValue(value);
     state.settings[name] = parsed ?? 0;
+  } else if (name === 'defaultStartTime' || name === 'defaultFinishTime') {
+    state.settings[name] = value;
   } else {
     state.settings[name] = Number(value) || 0;
   }
   saveState();
+
+  if (name === 'defaultStartTime' || name === 'defaultFinishTime') {
+    state.timesheetDays = state.timesheetDays.map((day) => {
+      if (day.isWeekend) return day;
+      const currentStart = day.start || state.settings.defaultStartTime || '08:00';
+      const currentFinish = day.finish || state.settings.defaultFinishTime || '16:30';
+      const hasBeenEdited = Boolean(day.start && day.finish && (currentStart !== state.settings.defaultStartTime || currentFinish !== state.settings.defaultFinishTime));
+      if (hasBeenEdited) return day;
+      return {
+        ...day,
+        start: state.settings.defaultStartTime || '08:00',
+        finish: state.settings.defaultFinishTime || '16:30',
+      };
+    });
+    saveState();
+  }
+
   render();
 });
 
