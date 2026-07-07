@@ -153,8 +153,15 @@ function calculateBalances() {
 }
 
 function parseQuarterHourValue(rawValue) {
-  const value = Number(String(rawValue).trim());
+  if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+
+  const textValue = String(rawValue).trim();
+  if (!textValue) return null;
+
+  const normalizedValue = textValue.replace(/\s+/g, '').replace(/h$/, '').replace(/hr$/, '').replace(/hrs$/, '');
+  const value = Number(normalizedValue);
   if (!Number.isFinite(value) || value <= 0) return null;
+
   const scaled = Math.round(value * 4);
   if (scaled <= 0 || Math.abs(value * 4 - scaled) > 1e-9) return null;
   return scaled / 4;
@@ -270,7 +277,7 @@ function renderProfile() {
   document.getElementById('managerName').value = state.profile.managerName;
   document.getElementById('role').value = state.profile.role;
   document.getElementById('department').value = state.profile.department;
-  document.getElementById('startingTtb').value = state.settings.startingTtb;
+  document.getElementById('startingTtb').value = state.settings.startingTtb.toFixed(2).replace(/\.00$/, '');
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
