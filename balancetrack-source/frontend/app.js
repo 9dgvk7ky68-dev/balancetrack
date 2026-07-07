@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'balancetrack-state-v2';
-const AUTH_STORAGE_KEY = 'balancetrack-auth-config-v1';
 const SUPABASE_TABLE = 'balancetrack_states';
+const SUPABASE_URL = 'https://aumqpoaupqcbrkxozwmm.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_9gEri05WN-VA1hSVDXFvwQ_i_qQs6wL';
 const defaultState = {
   entries: [],
   profile: {
@@ -40,9 +41,6 @@ const nextFortnightBtn = document.getElementById('nextFortnightBtn');
 const resetSelectedFortnightBtn = document.getElementById('resetSelectedFortnightBtn');
 const resetFortnightDateEl = document.getElementById('resetFortnightDate');
 const exportTtbBtn = document.getElementById('exportTtbBtn');
-const supabaseUrlEl = document.getElementById('supabaseUrl');
-const supabaseAnonKeyEl = document.getElementById('supabaseAnonKey');
-const authConnectBtn = document.getElementById('authConnectBtn');
 const authEmailEl = document.getElementById('authEmail');
 const authPasswordEl = document.getElementById('authPassword');
 const authSignUpBtn = document.getElementById('authSignUpBtn');
@@ -56,7 +54,6 @@ const useDayBtn = document.getElementById('useDayBtn');
 const profileForm = document.getElementById('profileForm');
 const settingsForm = document.getElementById('settingsForm');
 
-let authConfig = loadAuthConfig();
 let supabaseClient = null;
 let authListenerAttached = false;
 let currentUserId = null;
@@ -87,28 +84,6 @@ function loadState() {
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   queueCloudSync();
-}
-
-function loadAuthConfig() {
-  try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return { url: '', anonKey: '' };
-    const parsed = JSON.parse(raw);
-    return {
-      url: String(parsed.url || '').trim(),
-      anonKey: String(parsed.anonKey || '').trim(),
-    };
-  } catch (error) {
-    return { url: '', anonKey: '' };
-  }
-}
-
-function saveAuthConfig(config) {
-  authConfig = {
-    url: String(config.url || '').trim(),
-    anonKey: String(config.anonKey || '').trim(),
-  };
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authConfig));
 }
 
 function getSyncableState() {
@@ -142,12 +117,7 @@ async function connectSupabase() {
     return null;
   }
 
-  if (!authConfig.url || !authConfig.anonKey) {
-    setAuthStatus('Enter Supabase URL and anon key, then connect.', true);
-    return null;
-  }
-
-  supabaseClient = window.supabase.createClient(authConfig.url, authConfig.anonKey);
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
   if (!authListenerAttached) {
     supabaseClient.auth.onAuthStateChange(async (_event, session) => {
@@ -174,7 +144,7 @@ async function connectSupabase() {
     setAuthStatus(`Connected as ${data.session.user.email}. Syncing...`);
     await pullStateFromCloud();
   } else {
-    setAuthStatus('Supabase connected. Register or sign in to sync.');
+    setAuthStatus('Register or sign in with your email to sync between devices.');
   }
 
   return supabaseClient;
@@ -857,21 +827,6 @@ authSignOutBtn.addEventListener('click', () => {
   })();
 });
 
-authConnectBtn.addEventListener('click', () => {
-  const url = String(supabaseUrlEl?.value || '').trim();
-  const anonKey = String(supabaseAnonKeyEl?.value || '').trim();
-
-  if (!url || !anonKey) {
-    setAuthStatus('Enter Supabase URL and anon key before connecting.', true);
-    return;
-  }
-
-  saveAuthConfig({ url, anonKey });
-  connectSupabase().catch((error) => {
-    setAuthStatus(`Connect failed: ${error.message}`, true);
-  });
-});
-
 tabButtons.forEach((button) => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
 });
@@ -947,10 +902,6 @@ if ('serviceWorker' in navigator) {
 render();
 switchTab('dashboard');
 
-if (supabaseUrlEl) supabaseUrlEl.value = authConfig.url;
-if (supabaseAnonKeyEl) supabaseAnonKeyEl.value = authConfig.anonKey;
-if (authConfig.url && authConfig.anonKey) {
-  connectSupabase().catch((error) => {
-    setAuthStatus(`Connect failed: ${error.message}`, true);
-  });
-}
+connectSupabase().catch((error) => {
+  setAuthStatus(`Connect failed: ${error.message}`, true);
+});
