@@ -305,14 +305,12 @@ function renderEntries() {
 }
 
 function renderTimesheet() {
-  const firstWeekStart = state.timesheetDays[0]?.date;
-  const firstWeekEnd = state.timesheetDays[6]?.date;
-  const secondWeekStart = state.timesheetDays[7]?.date;
-  const secondWeekEnd = state.timesheetDays[state.timesheetDays.length - 1]?.date;
-  const rangeLabel = firstWeekStart && firstWeekEnd && secondWeekStart && secondWeekEnd
-    ? `Week 1: ${formatDate(firstWeekStart)} – ${formatDate(firstWeekEnd)}<br>Week 2: ${formatDate(secondWeekStart)} – ${formatDate(secondWeekEnd)}`
+  const startDate = state.timesheetDays[0]?.date;
+  const endDate = state.timesheetDays[state.timesheetDays.length - 1]?.date;
+  const rangeLabel = startDate && endDate
+    ? `${formatDate(startDate)} – ${formatDate(endDate)}`
     : 'Work hours';
-  timesheetTitleEl.innerHTML = rangeLabel;
+  timesheetTitleEl.textContent = rangeLabel;
 
   timesheetDaysEl.innerHTML = state.timesheetDays
     .map((day, index) => {
