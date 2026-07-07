@@ -20,6 +20,7 @@ const state = loadState();
 const tabButtons = document.querySelectorAll('.tab-btn');
 const views = document.querySelectorAll('.view');
 const ttbBalanceEl = document.getElementById('ttbBalance');
+const ttbBalanceDaysEl = document.getElementById('ttbBalanceDays');
 const dayBalanceEl = document.getElementById('dayBalance');
 const fortnightSummaryEl = document.getElementById('fortnightSummary');
 const fortnightOtEl = document.getElementById('fortnightOt');
@@ -209,7 +210,10 @@ function renderDashboard() {
   const balances = calculateBalances();
   const latest = state.entries[0];
 
-  ttbBalanceEl.textContent = formatTtbAmount(balances.ttb);
+  const ttbHours = Number(balances.ttb || 0);
+  const ttbDays = ttbHours / 8;
+  ttbBalanceEl.textContent = `${ttbHours.toFixed(2)} hrs`;
+  ttbBalanceDaysEl.textContent = `${ttbDays.toFixed(2)} days`;
   dayBalanceEl.textContent = `${balances.day.toFixed(1)}d`;
 
   const { totalWorked, totalOT } = recalculateTimesheet();

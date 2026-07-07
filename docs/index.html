@@ -24,18 +24,15 @@
           </div>
         </header>
 
-        <nav class="tab-nav" aria-label="Main sections">
-          <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-          <button class="tab-btn" data-tab="timesheet">Timesheet</button>
-          <button class="tab-btn" data-tab="settings">Settings</button>
-        </nav>
-
         <main>
           <section id="dashboardView" class="view active">
             <div class="summary-grid">
               <article class="card highlight">
                 <p>TTB balance</p>
-                <strong id="ttbBalance">0.0h</strong>
+                <div class="metric-stack">
+                  <strong id="ttbBalance">0.00 hrs</strong>
+                  <span id="ttbBalanceDays">0.00 days</span>
+                </div>
                 <div class="quick-actions">
                   <button class="btn btn-secondary" id="addTtbBtn">Add TTB</button>
                   <button class="btn btn-ghost" id="useTtbBtn">Use TTB</button>
@@ -147,6 +144,34 @@
             </div>
           </section>
         </main>
+
+        <nav class="tab-nav" aria-label="Main sections">
+          <button class="tab-btn active" data-tab="dashboard" aria-label="Dashboard">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="14" rx="2"></rect>
+              <path d="M8 2v4"></path>
+              <path d="M16 2v4"></path>
+              <path d="M3 10h18"></path>
+            </svg>
+          </button>
+          <button class="tab-btn" data-tab="timesheet" aria-label="Timesheet">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+              <path d="M8 2v4"></path>
+              <path d="M16 2v4"></path>
+              <path d="M4 9h16"></path>
+              <path d="M8 13h.01"></path>
+              <path d="M12 13h.01"></path>
+              <path d="M16 13h.01"></path>
+            </svg>
+          </button>
+          <button class="tab-btn" data-tab="settings" aria-label="Settings">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1Z"></path>
+            </svg>
+          </button>
+        </nav>
       </div>
     </div>
 

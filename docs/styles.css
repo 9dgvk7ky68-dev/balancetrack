@@ -100,25 +100,37 @@ h1 {
 }
 
 .tab-nav {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
 .tab-btn {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--muted);
-  border-radius: 999px;
-  padding: 8px 10px;
+  border-radius: 50%;
+  padding: 0;
   cursor: pointer;
+  box-shadow: 0 6px 16px rgba(19, 34, 24, 0.07);
 }
 
 .tab-btn.active {
   background: var(--accent-soft);
   color: var(--accent);
   border-color: transparent;
+}
+
+.tab-icon {
+  width: 20px;
+  height: 20px;
 }
 
 .view {
@@ -184,6 +196,19 @@ h1 {
   margin-top: 6px;
   font-size: 1.28rem;
   line-height: 1.2;
+}
+
+.metric-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.metric-stack span {
+  margin-top: 0;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .card span {
@@ -364,7 +389,7 @@ select {
   }
 
   .tab-nav {
-    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .timesheet-row {
