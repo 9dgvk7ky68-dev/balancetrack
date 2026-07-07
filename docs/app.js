@@ -150,10 +150,28 @@ function calculateBalances() {
   return manualNet;
 }
 
+function parseQuarterHourValue(rawValue) {
+  const value = Number(String(rawValue).trim());
+  if (!Number.isFinite(value) || value <= 0) return null;
+  const scaled = Math.round(value * 4);
+  if (scaled <= 0 || Math.abs(value * 4 - scaled) > 1e-9) return null;
+  return scaled / 4;
+}
+
+function formatTtbAmount(hours) {
+  const totalMinutes = Math.round(Number(hours || 0) * 60);
+  const wholeHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (wholeHours && minutes) return `${wholeHours}h ${minutes}m`;
+  if (wholeHours) return `${wholeHours}h`;
+  if (minutes) return `${minutes}m`;
+  return '0m';
+}
+
 function formatAmount(type, amount, action) {
-  const suffix = type === 'day' ? 'd' : 'h';
   const sign = action === 'used' ? '-' : '+';
-  return `${sign}${amount.toFixed(2)}${suffix}`;
+  if (type === 'day') return `${sign}${Number(amount).toFixed(2)}d`;
+  return `${sign}${formatTtbAmount(amount)}`;
 }
 
 function formatDate(dateString) {
@@ -182,7 +200,7 @@ function renderDashboard() {
   const balances = calculateBalances();
   const latest = state.entries[0];
 
-  ttbBalanceEl.textContent = `${balances.ttb.toFixed(1)}h`;
+  ttbBalanceEl.textContent = formatTtbAmount(balances.ttb);
   dayBalanceEl.textContent = `${balances.day.toFixed(1)}d`;
 
   const { totalWorked, totalOT } = recalculateTimesheet();
@@ -271,8 +289,19 @@ function switchTab(tabName) {
   });
 }
 
-addTtbBtn.addEventListener('click', () => addEntry('ttb', 'earned', 1, 'Quick TTB add'));
-useTtbBtn.addEventListener('click', () => addEntry('ttb', 'used', 1, 'Quick TTB use'));
+function addTtbQuickEntry(action) {
+  const rawValue = window.prompt('Enter TTB amount in quarter-hour steps (0.25, 0.5, 0.75, 1, etc.)', '0.25');
+  if (rawValue === null) return;
+  const parsedValue = parseQuarterHourValue(rawValue);
+  if (!parsedValue) {
+    window.alert('Please enter a positive value in quarter-hour increments such as 0.25, 0.5, 0.75, or 1.');
+    return;
+  }
+  addEntry('ttb', action, parsedValue, action === 'earned' ? 'Quick TTB add' : 'Quick TTB use');
+}
+
+addTtbBtn.addEventListener('click', () => addTtbQuickEntry('earned'));
+useTtbBtn.addEventListener('click', () => addTtbQuickEntry('used'));
 addDayBtn.addEventListener('click', () => addEntry('day', 'earned', 1, 'Quick day add'));
 useDayBtn.addEventListener('click', () => addEntry('day', 'used', 1, 'Quick day use'));
 
