@@ -79,8 +79,15 @@ function getMondayOfCurrentWeek(reference = new Date()) {
   return date;
 }
 
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function getFortnightKey(referenceDate = new Date()) {
-  return getMondayOfCurrentWeek(referenceDate).toISOString().slice(0, 10);
+  return formatLocalDate(getMondayOfCurrentWeek(referenceDate));
 }
 
 function buildFortnightDays(anchorDate = getMondayOfCurrentWeek()) {
@@ -91,7 +98,7 @@ function buildFortnightDays(anchorDate = getMondayOfCurrentWeek()) {
     date.setDate(start.getDate() + index);
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
     return {
-      date: date.toISOString().slice(0, 10),
+      date: formatLocalDate(date),
       label: date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
       isWeekend,
       start: isWeekend ? '' : state.settings.defaultStartTime || '08:00',
@@ -236,7 +243,10 @@ function formatAmount(type, amount, action) {
 }
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString(undefined, {
+  const normalizedDate = typeof dateString === 'string' && dateString.length === 10
+    ? `${dateString}T12:00:00`
+    : dateString;
+  return new Date(normalizedDate).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
