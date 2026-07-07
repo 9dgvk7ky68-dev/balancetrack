@@ -14,10 +14,13 @@ const defaultState = {
     defaultFinishTime: '16:30',
   },
   timesheetDays: [],
+  currentFortnightKey: '',
+  fortnightData: {},
 };
 
 const state = loadState();
-state.currentFortnightOffset = Number(state.currentFortnightOffset || 0);
+state.currentFortnightKey = state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek());
+state.fortnightData = state.fortnightData || {};
 const tabButtons = document.querySelectorAll('.tab-btn');
 const views = document.querySelectorAll('.view');
 const ttbBalanceEl = document.getElementById('ttbBalance');
@@ -31,9 +34,10 @@ const emptyState = document.getElementById('emptyState');
 const timesheetDaysEl = document.getElementById('timesheetDays');
 const timesheetTitleEl = document.getElementById('timesheetTitle');
 const clearButton = document.getElementById('clearButton');
-const resetTimesheetBtn = document.getElementById('resetTimesheetBtn');
 const prevFortnightBtn = document.getElementById('prevFortnightBtn');
 const nextFortnightBtn = document.getElementById('nextFortnightBtn');
+const resetSelectedFortnightBtn = document.getElementById('resetSelectedFortnightBtn');
+const resetFortnightDateEl = document.getElementById('resetFortnightDate');
 const addTtbBtn = document.getElementById('addTtbBtn');
 const useTtbBtn = document.getElementById('useTtbBtn');
 const addDayBtn = document.getElementById('addDayBtn');
@@ -53,6 +57,8 @@ function loadState() {
       profile: { ...defaultState.profile, ...(parsed.profile || {}) },
       settings: { ...defaultState.settings, ...(parsed.settings || {}) },
       timesheetDays: Array.isArray(parsed.timesheetDays) ? parsed.timesheetDays : [],
+      currentFortnightKey: typeof parsed.currentFortnightKey === 'string' ? parsed.currentFortnightKey : '',
+      fortnightData: parsed.fortnightData && typeof parsed.fortnightData === 'object' ? parsed.fortnightData : {},
     };
   } catch (error) {
     console.warn('Could not load state', error);
@@ -73,9 +79,13 @@ function getMondayOfCurrentWeek(reference = new Date()) {
   return date;
 }
 
-function buildFortnightDays(offset = 0) {
-  const start = getMondayOfCurrentWeek();
-  start.setDate(start.getDate() + offset * 14);
+function getFortnightKey(referenceDate = new Date()) {
+  return getMondayOfCurrentWeek(referenceDate).toISOString().slice(0, 10);
+}
+
+function buildFortnightDays(anchorDate = getMondayOfCurrentWeek()) {
+  const start = new Date(anchorDate);
+  start.setHours(0, 0, 0, 0);
   return Array.from({ length: 14 }, (_, index) => {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
@@ -92,11 +102,47 @@ function buildFortnightDays(offset = 0) {
   });
 }
 
+function saveCurrentFortnight() {
+  if (!state.currentFortnightKey) return;
+  state.fortnightData[state.currentFortnightKey] = (state.timesheetDays || []).map((day) => ({ ...day }));
+  saveState();
+}
+
 function ensureTimesheetDays() {
-  if (!state.timesheetDays || state.timesheetDays.length !== 14) {
-    state.timesheetDays = buildFortnightDays(state.currentFortnightOffset || 0);
-    saveState();
+  if (!state.currentFortnightKey) {
+    state.currentFortnightKey = getFortnightKey(getMondayOfCurrentWeek());
   }
+
+  const storedFortnight = state.fortnightData[state.currentFortnightKey];
+  if (Array.isArray(storedFortnight) && storedFortnight.length === 14) {
+    state.timesheetDays = storedFortnight.map((day) => ({ ...day }));
+    return;
+  }
+
+  state.timesheetDays = buildFortnightDays(getMondayOfCurrentWeek(state.currentFortnightKey));
+  saveCurrentFortnight();
+}
+
+function getFortnightStartFromDate(selectedDate) {
+  const referenceStart = getMondayOfCurrentWeek();
+  const selected = new Date(selectedDate);
+  selected.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((selected - referenceStart) / 86400000);
+  const offset = Math.floor(diffDays / 14);
+  const start = new Date(referenceStart);
+  start.setDate(referenceStart.getDate() + offset * 14);
+  return start;
+}
+
+function setCurrentFortnight(anchorDate) {
+  const monday = new Date(anchorDate);
+  monday.setHours(0, 0, 0, 0);
+  state.currentFortnightKey = getFortnightKey(monday);
+  const storedFortnight = state.fortnightData[state.currentFortnightKey];
+  state.timesheetDays = Array.isArray(storedFortnight) && storedFortnight.length === 14
+    ? storedFortnight.map((day) => ({ ...day }))
+    : buildFortnightDays(monday);
+  saveCurrentFortnight();
 }
 
 function toMinutes(time) {
@@ -344,23 +390,40 @@ clearButton.addEventListener('click', () => {
   }
 });
 
-resetTimesheetBtn.addEventListener('click', () => {
-  state.currentFortnightOffset = 0;
-  state.timesheetDays = buildFortnightDays(state.currentFortnightOffset);
-  saveState();
-  render();
-});
-
 prevFortnightBtn.addEventListener('click', () => {
-  state.currentFortnightOffset -= 1;
-  state.timesheetDays = buildFortnightDays(state.currentFortnightOffset);
-  saveState();
+  const anchor = new Date(state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek()));
+  anchor.setDate(anchor.getDate() - 14);
+  setCurrentFortnight(anchor);
   render();
 });
 
 nextFortnightBtn.addEventListener('click', () => {
-  state.currentFortnightOffset += 1;
-  state.timesheetDays = buildFortnightDays(state.currentFortnightOffset);
+  const anchor = new Date(state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek()));
+  anchor.setDate(anchor.getDate() + 14);
+  setCurrentFortnight(anchor);
+  render();
+});
+
+resetSelectedFortnightBtn.addEventListener('click', () => {
+  const selectedDate = resetFortnightDateEl.value;
+  if (!selectedDate) {
+    window.alert('Please select a date in the fortnight you want to reset.');
+    return;
+  }
+
+  const startDate = getFortnightStartFromDate(selectedDate);
+  const resetAnchor = new Date(startDate);
+  const resetDays = buildFortnightDays(resetAnchor).map((day) => ({
+    ...day,
+    start: day.isWeekend ? '' : state.settings.defaultStartTime || '08:00',
+    finish: day.isWeekend ? '' : state.settings.defaultFinishTime || '16:30',
+    workedHours: day.isWeekend ? 0 : 8,
+    overtime: 0,
+  }));
+
+  state.currentFortnightKey = getFortnightKey(resetAnchor);
+  state.timesheetDays = resetDays;
+  state.fortnightData[state.currentFortnightKey] = resetDays;
   saveState();
   render();
 });
@@ -412,7 +475,7 @@ timesheetDaysEl.addEventListener('change', (event) => {
   const index = Number(row.dataset.index);
   const field = event.target.dataset.field;
   state.timesheetDays[index][field] = event.target.value;
-  saveState();
+  saveCurrentFortnight();
   render();
 });
 

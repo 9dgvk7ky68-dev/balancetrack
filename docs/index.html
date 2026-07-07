@@ -82,7 +82,6 @@
                 </div>
                 <div class="timesheet-actions">
                   <button id="prevFortnightBtn" class="btn btn-ghost" type="button">←</button>
-                  <button id="resetTimesheetBtn" class="btn btn-secondary" type="button">Reset to standard</button>
                   <button id="nextFortnightBtn" class="btn btn-ghost" type="button">→</button>
                 </div>
               </div>
@@ -147,6 +146,22 @@
                   <input id="defaultFinishTime" name="defaultFinishTime" type="time" />
                 </label>
               </form>
+            </div>
+
+            <div class="card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Fortnight reset</p>
+                  <h2>Reset a period</h2>
+                </div>
+              </div>
+              <div class="settings-form">
+                <label>
+                  Select a date in the fortnight to reset
+                  <input id="resetFortnightDate" type="date" />
+                </label>
+                <button id="resetSelectedFortnightBtn" class="btn btn-secondary" type="button">Reset selected fortnight</button>
+              </div>
             </div>
           </section>
         </main>
