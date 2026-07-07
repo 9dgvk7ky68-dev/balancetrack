@@ -1,4 +1,6 @@
 const STORAGE_KEY = 'balancetrack-state-v2';
+const AUTH_STORAGE_KEY = 'balancetrack-auth-config-v1';
+const SUPABASE_TABLE = 'balancetrack_states';
 const defaultState = {
   entries: [],
   profile: {
@@ -38,6 +40,9 @@ const nextFortnightBtn = document.getElementById('nextFortnightBtn');
 const resetSelectedFortnightBtn = document.getElementById('resetSelectedFortnightBtn');
 const resetFortnightDateEl = document.getElementById('resetFortnightDate');
 const exportTtbBtn = document.getElementById('exportTtbBtn');
+const supabaseUrlEl = document.getElementById('supabaseUrl');
+const supabaseAnonKeyEl = document.getElementById('supabaseAnonKey');
+const authConnectBtn = document.getElementById('authConnectBtn');
 const authEmailEl = document.getElementById('authEmail');
 const authPasswordEl = document.getElementById('authPassword');
 const authSignUpBtn = document.getElementById('authSignUpBtn');
@@ -50,6 +55,13 @@ const addDayBtn = document.getElementById('addDayBtn');
 const useDayBtn = document.getElementById('useDayBtn');
 const profileForm = document.getElementById('profileForm');
 const settingsForm = document.getElementById('settingsForm');
+
+let authConfig = loadAuthConfig();
+let supabaseClient = null;
+let authListenerAttached = false;
+let currentUserId = null;
+let syncTimer = null;
+let isApplyingRemoteState = false;
 
 function loadState() {
   try {
@@ -74,6 +86,156 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  queueCloudSync();
+}
+
+function loadAuthConfig() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return { url: '', anonKey: '' };
+    const parsed = JSON.parse(raw);
+    return {
+      url: String(parsed.url || '').trim(),
+      anonKey: String(parsed.anonKey || '').trim(),
+    };
+  } catch (error) {
+    return { url: '', anonKey: '' };
+  }
+}
+
+function saveAuthConfig(config) {
+  authConfig = {
+    url: String(config.url || '').trim(),
+    anonKey: String(config.anonKey || '').trim(),
+  };
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authConfig));
+}
+
+function getSyncableState() {
+  return {
+    entries: state.entries,
+    profile: state.profile,
+    settings: state.settings,
+    timesheetDays: state.timesheetDays,
+    currentFortnightKey: state.currentFortnightKey,
+    fortnightData: state.fortnightData,
+  };
+}
+
+function applyRemoteState(appState) {
+  if (!appState || typeof appState !== 'object') return;
+  state.entries = Array.isArray(appState.entries) ? appState.entries : [];
+  state.profile = { ...defaultState.profile, ...(appState.profile || {}) };
+  state.settings = { ...defaultState.settings, ...(appState.settings || {}) };
+  state.timesheetDays = Array.isArray(appState.timesheetDays) ? appState.timesheetDays : [];
+  state.currentFortnightKey = typeof appState.currentFortnightKey === 'string'
+    ? appState.currentFortnightKey
+    : getFortnightKey(getMondayOfCurrentWeek());
+  state.fortnightData = appState.fortnightData && typeof appState.fortnightData === 'object'
+    ? appState.fortnightData
+    : {};
+}
+
+async function connectSupabase() {
+  if (!window.supabase?.createClient) {
+    setAuthStatus('Supabase library failed to load. Refresh and try again.', true);
+    return null;
+  }
+
+  if (!authConfig.url || !authConfig.anonKey) {
+    setAuthStatus('Enter Supabase URL and anon key, then connect.', true);
+    return null;
+  }
+
+  supabaseClient = window.supabase.createClient(authConfig.url, authConfig.anonKey);
+
+  if (!authListenerAttached) {
+    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+      currentUserId = session?.user?.id || null;
+      if (currentUserId) {
+        authEmailEl.value = session.user.email || authEmailEl.value;
+        setAuthStatus(`Connected as ${session.user.email}. Syncing...`);
+        await pullStateFromCloud();
+      } else {
+        setAuthStatus('Signed out. Data is local until you sign in again.');
+      }
+    });
+    authListenerAttached = true;
+  }
+
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) {
+    setAuthStatus(`Could not verify session: ${error.message}`, true);
+    return null;
+  }
+
+  currentUserId = data.session?.user?.id || null;
+  if (currentUserId) {
+    setAuthStatus(`Connected as ${data.session.user.email}. Syncing...`);
+    await pullStateFromCloud();
+  } else {
+    setAuthStatus('Supabase connected. Register or sign in to sync.');
+  }
+
+  return supabaseClient;
+}
+
+async function pullStateFromCloud() {
+  if (!supabaseClient || !currentUserId) return;
+
+  const { data, error } = await supabaseClient
+    .from(SUPABASE_TABLE)
+    .select('app_state')
+    .eq('user_id', currentUserId)
+    .maybeSingle();
+
+  if (error) {
+    setAuthStatus(`Cloud read failed: ${error.message}`, true);
+    return;
+  }
+
+  if (data?.app_state) {
+    isApplyingRemoteState = true;
+    applyRemoteState(data.app_state);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    isApplyingRemoteState = false;
+    render();
+    setAuthStatus('Cloud data synced to this device.');
+  } else {
+    await pushStateToCloud();
+    setAuthStatus('No cloud data found. Uploaded local data as baseline.');
+  }
+}
+
+async function pushStateToCloud() {
+  if (!supabaseClient || !currentUserId || isApplyingRemoteState) return;
+
+  const payload = {
+    user_id: currentUserId,
+    app_state: getSyncableState(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabaseClient
+    .from(SUPABASE_TABLE)
+    .upsert(payload, { onConflict: 'user_id' });
+
+  if (error) {
+    setAuthStatus(`Cloud sync failed: ${error.message}`, true);
+    return;
+  }
+
+  setAuthStatus('Synced across signed-in devices.');
+}
+
+function queueCloudSync() {
+  if (!supabaseClient || !currentUserId || isApplyingRemoteState) return;
+  window.clearTimeout(syncTimer);
+  syncTimer = window.setTimeout(() => {
+    pushStateToCloud().catch((error) => {
+      setAuthStatus(`Cloud sync failed: ${error.message}`, true);
+    });
+  }, 500);
 }
 
 function getMondayOfCurrentWeek(reference = new Date()) {
@@ -642,20 +804,72 @@ authSignUpBtn.addEventListener('click', () => {
   const values = validateAuthInputs();
   if (!values) return;
 
-  setAuthStatus('Registration UI is ready. Next step is connecting Supabase Auth for real cross-device sync.');
+  (async () => {
+    const client = await connectSupabase();
+    if (!client) return;
+
+    const { error } = await client.auth.signUp({
+      email: values.email,
+      password: values.password,
+    });
+
+    if (error) {
+      setAuthStatus(`Registration failed: ${error.message}`, true);
+      return;
+    }
+
+    setAuthStatus('Registration submitted. Check email for confirmation if required.');
+  })();
 });
 
 authSignInBtn.addEventListener('click', () => {
   const values = validateAuthInputs();
   if (!values) return;
 
-  setAuthStatus('Sign-in UI is ready. Next step is connecting Supabase Auth for real cross-device sync.');
+  (async () => {
+    const client = await connectSupabase();
+    if (!client) return;
+
+    const { data, error } = await client.auth.signInWithPassword({
+      email: values.email,
+      password: values.password,
+    });
+
+    if (error) {
+      setAuthStatus(`Sign in failed: ${error.message}`, true);
+      return;
+    }
+
+    currentUserId = data.user?.id || null;
+    await pullStateFromCloud();
+  })();
 });
 
 authSignOutBtn.addEventListener('click', () => {
-  if (authEmailEl) authEmailEl.value = '';
-  if (authPasswordEl) authPasswordEl.value = '';
-  setAuthStatus('Signed out locally. CSV export remains available as backup.');
+  (async () => {
+    if (supabaseClient) {
+      await supabaseClient.auth.signOut();
+    }
+    currentUserId = null;
+    if (authEmailEl) authEmailEl.value = '';
+    if (authPasswordEl) authPasswordEl.value = '';
+    setAuthStatus('Signed out. CSV export remains available as backup.');
+  })();
+});
+
+authConnectBtn.addEventListener('click', () => {
+  const url = String(supabaseUrlEl?.value || '').trim();
+  const anonKey = String(supabaseAnonKeyEl?.value || '').trim();
+
+  if (!url || !anonKey) {
+    setAuthStatus('Enter Supabase URL and anon key before connecting.', true);
+    return;
+  }
+
+  saveAuthConfig({ url, anonKey });
+  connectSupabase().catch((error) => {
+    setAuthStatus(`Connect failed: ${error.message}`, true);
+  });
 });
 
 tabButtons.forEach((button) => {
@@ -732,3 +946,11 @@ if ('serviceWorker' in navigator) {
 
 render();
 switchTab('dashboard');
+
+if (supabaseUrlEl) supabaseUrlEl.value = authConfig.url;
+if (supabaseAnonKeyEl) supabaseAnonKeyEl.value = authConfig.anonKey;
+if (authConfig.url && authConfig.anonKey) {
+  connectSupabase().catch((error) => {
+    setAuthStatus(`Connect failed: ${error.message}`, true);
+  });
+}
