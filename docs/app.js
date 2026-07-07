@@ -562,15 +562,17 @@ function renderDashboard() {
   const totalMinutes = Math.round(ttbHours * 60);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  ttbBalanceEl.textContent = `${hours}h ${minutes}m`;
-  ttbBalanceDaysEl.textContent = `${ttbDays.toFixed(2)} days`;
-  dayBalanceEl.textContent = `${balances.day.toFixed(1)}d`;
+  if (ttbBalanceEl) ttbBalanceEl.textContent = `${hours}h ${minutes}m`;
+  if (ttbBalanceDaysEl) ttbBalanceDaysEl.textContent = `${ttbDays.toFixed(2)} days`;
+  if (dayBalanceEl) dayBalanceEl.textContent = `${balances.day.toFixed(1)}d`;
 
   const { totalWorked, totalOT } = recalculateTimesheet();
-  fortnightSummaryEl.textContent = `${totalWorked.toFixed(1)}h worked`;
-  fortnightOtEl.textContent = `${totalOT.toFixed(1)}h OT accrued`;
+  if (fortnightSummaryEl) fortnightSummaryEl.textContent = `${totalWorked.toFixed(1)}h worked`;
+  if (fortnightOtEl) fortnightOtEl.textContent = `${totalOT.toFixed(1)}h OT accrued`;
 
-  latestEntryEl.textContent = latest ? `${latest.type === 'ttb' ? 'TTB' : 'Days in lieu'} · ${formatDate(latest.date)}` : 'No entries yet';
+  if (latestEntryEl) {
+    latestEntryEl.textContent = latest ? `${latest.type === 'ttb' ? 'TTB' : 'Days in lieu'} · ${formatDate(latest.date)}` : 'No entries yet';
+  }
 }
 
 function renderEntries() {
@@ -723,26 +725,26 @@ function addTtbQuickEntry(action) {
   addEntry('ttb', action, parsedValue, note);
 }
 
-addTtbBtn.addEventListener('click', () => addTtbQuickEntry('earned'));
-useTtbBtn.addEventListener('click', () => addTtbQuickEntry('used'));
-addDayBtn.addEventListener('click', () => addEntry('day', 'earned', 1, 'Quick day add'));
-useDayBtn.addEventListener('click', () => addEntry('day', 'used', 1, 'Quick day use'));
+addTtbBtn?.addEventListener('click', () => addTtbQuickEntry('earned'));
+useTtbBtn?.addEventListener('click', () => addTtbQuickEntry('used'));
+addDayBtn?.addEventListener('click', () => addEntry('day', 'earned', 1, 'Quick day add'));
+useDayBtn?.addEventListener('click', () => addEntry('day', 'used', 1, 'Quick day use'));
 
-prevFortnightBtn.addEventListener('click', () => {
+prevFortnightBtn?.addEventListener('click', () => {
   const anchor = parseLocalDate(state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek()));
   anchor.setDate(anchor.getDate() - 14);
   setCurrentFortnight(anchor);
   render();
 });
 
-nextFortnightBtn.addEventListener('click', () => {
+nextFortnightBtn?.addEventListener('click', () => {
   const anchor = parseLocalDate(state.currentFortnightKey || getFortnightKey(getMondayOfCurrentWeek()));
   anchor.setDate(anchor.getDate() + 14);
   setCurrentFortnight(anchor);
   render();
 });
 
-resetSelectedFortnightBtn.addEventListener('click', () => {
+resetSelectedFortnightBtn?.addEventListener('click', () => {
   const selectedDate = resetFortnightDateEl.value;
   if (!selectedDate) {
     window.alert('Please select a date in the fortnight you want to reset.');
@@ -766,11 +768,11 @@ resetSelectedFortnightBtn.addEventListener('click', () => {
   render();
 });
 
-exportTtbBtn.addEventListener('click', () => {
+exportTtbBtn?.addEventListener('click', () => {
   exportTtbCsv();
 });
 
-authSignUpBtn.addEventListener('click', () => {
+authSignUpBtn?.addEventListener('click', () => {
   const values = validateAuthInputs();
   if (!values) return;
 
@@ -792,7 +794,7 @@ authSignUpBtn.addEventListener('click', () => {
   })();
 });
 
-authSignInBtn.addEventListener('click', () => {
+authSignInBtn?.addEventListener('click', () => {
   const values = validateAuthInputs();
   if (!values) return;
 
@@ -815,7 +817,7 @@ authSignInBtn.addEventListener('click', () => {
   })();
 });
 
-authSignOutBtn.addEventListener('click', () => {
+authSignOutBtn?.addEventListener('click', () => {
   (async () => {
     if (supabaseClient) {
       await supabaseClient.auth.signOut();
@@ -831,13 +833,13 @@ tabButtons.forEach((button) => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
 });
 
-profileForm.addEventListener('input', (event) => {
+profileForm?.addEventListener('input', (event) => {
   const { name, value } = event.target;
   state.profile[name] = value;
   saveState();
 });
 
-settingsForm.addEventListener('input', (event) => {
+settingsForm?.addEventListener('input', (event) => {
   const { name, value } = event.target;
   if (name === 'startingTtb' || name === 'startingDay') {
     const parsed = parseQuarterHourValue(value);
@@ -868,7 +870,7 @@ settingsForm.addEventListener('input', (event) => {
   render();
 });
 
-timesheetDaysEl.addEventListener('change', (event) => {
+timesheetDaysEl?.addEventListener('change', (event) => {
   const row = event.target.closest('.timesheet-row');
   if (!row) return;
 
