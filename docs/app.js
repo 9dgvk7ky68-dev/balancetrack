@@ -17,9 +17,6 @@ const defaultState = {
 const state = loadState();
 const tabButtons = document.querySelectorAll('.tab-btn');
 const views = document.querySelectorAll('.view');
-const installBanner = document.getElementById('installBanner');
-const installBannerInstall = document.getElementById('installBannerInstall');
-const installBannerDismiss = document.getElementById('installBannerDismiss');
 const ttbBalanceEl = document.getElementById('ttbBalance');
 const dayBalanceEl = document.getElementById('dayBalance');
 const fortnightSummaryEl = document.getElementById('fortnightSummary');
@@ -265,8 +262,6 @@ function render() {
   renderProfile();
 }
 
-let deferredPrompt;
-
 function switchTab(tabName) {
   tabButtons.forEach((button) => {
     button.classList.toggle('active', button.dataset.tab === tabName);
@@ -274,16 +269,6 @@ function switchTab(tabName) {
   views.forEach((view) => {
     view.classList.toggle('active', view.id === `${tabName}View`);
   });
-}
-
-function hideInstallBanner() {
-  installBanner.hidden = true;
-  localStorage.setItem('balancetrack-install-dismissed', 'true');
-}
-
-function showInstallBanner() {
-  if (localStorage.getItem('balancetrack-install-dismissed') === 'true') return;
-  installBanner.hidden = false;
 }
 
 addTtbBtn.addEventListener('click', () => addEntry('ttb', 'earned', 1, 'Quick TTB add'));
@@ -331,28 +316,6 @@ timesheetDaysEl.addEventListener('change', (event) => {
   state.timesheetDays[index][field] = event.target.value;
   saveState();
   render();
-});
-
-installBannerInstall.addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  const choice = await deferredPrompt.userChoice;
-  if (choice.outcome === 'accepted') {
-    hideInstallBanner();
-  }
-});
-
-installBannerDismiss.addEventListener('click', hideInstallBanner);
-
-window.addEventListener('beforeinstallprompt', (event) => {
-  event.preventDefault();
-  deferredPrompt = event;
-  showInstallBanner();
-});
-
-window.addEventListener('appinstalled', () => {
-  hideInstallBanner();
-  deferredPrompt = null;
 });
 
 if ('serviceWorker' in navigator) {

@@ -60,29 +60,6 @@ select {
   margin: 2px auto 14px;
 }
 
-.install-banner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  background: linear-gradient(135deg, rgba(95, 143, 104, 0.16), rgba(141, 187, 138, 0.1));
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 12px 14px;
-  margin-bottom: 12px;
-}
-
-.install-banner p {
-  color: var(--muted);
-  font-size: 0.9rem;
-  margin-top: 4px;
-}
-
-.install-banner-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .hero {
   display: flex;
   flex-direction: column;
