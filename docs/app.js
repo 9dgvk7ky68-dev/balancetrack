@@ -21,7 +21,6 @@ const tabButtons = document.querySelectorAll('.tab-btn');
 const views = document.querySelectorAll('.view');
 const ttbBalanceEl = document.getElementById('ttbBalance');
 const ttbBalanceDaysEl = document.getElementById('ttbBalanceDays');
-const ttbBalanceMinutesEl = document.getElementById('ttbBalanceMinutes');
 const dayBalanceEl = document.getElementById('dayBalance');
 const fortnightSummaryEl = document.getElementById('fortnightSummary');
 const fortnightOtEl = document.getElementById('fortnightOt');
@@ -213,10 +212,11 @@ function renderDashboard() {
 
   const ttbHours = Number(balances.ttb || 0);
   const ttbDays = ttbHours / 8;
-  const ttbMinutes = Math.round(ttbHours * 60);
-  ttbBalanceEl.textContent = `${ttbHours.toFixed(2)} hrs`;
+  const totalMinutes = Math.round(ttbHours * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  ttbBalanceEl.textContent = `${hours}h ${minutes}m`;
   ttbBalanceDaysEl.textContent = `${ttbDays.toFixed(2)} days`;
-  ttbBalanceMinutesEl.textContent = `${ttbMinutes} mins`;
   dayBalanceEl.textContent = `${balances.day.toFixed(1)}d`;
 
   const { totalWorked, totalOT } = recalculateTimesheet();
