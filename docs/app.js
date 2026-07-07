@@ -38,6 +38,7 @@ const prevFortnightBtn = document.getElementById('prevFortnightBtn');
 const nextFortnightBtn = document.getElementById('nextFortnightBtn');
 const resetSelectedFortnightBtn = document.getElementById('resetSelectedFortnightBtn');
 const resetFortnightDateEl = document.getElementById('resetFortnightDate');
+const exportTtbBtn = document.getElementById('exportTtbBtn');
 const addTtbBtn = document.getElementById('addTtbBtn');
 const useTtbBtn = document.getElementById('useTtbBtn');
 const addDayBtn = document.getElementById('addDayBtn');
@@ -327,6 +328,57 @@ function applyExtraTimeToDate(dateString, hoursToAdd) {
   return true;
 }
 
+function csvEscape(value) {
+  const text = String(value ?? '');
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadCsvFile(fileName, rows) {
+  const content = rows.map((row) => row.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function exportTtbCsv() {
+  const earnedTtbEntries = state.entries
+    .filter((entry) => entry.type === 'ttb' && entry.action === 'earned')
+    .slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+  if (!earnedTtbEntries.length) {
+    window.alert('No earned TTB entries available to export yet.');
+    return;
+  }
+
+  const rows = [['Date', 'TTB added (minutes)', 'Reason']];
+  let totalMinutes = 0;
+
+  earnedTtbEntries.forEach((entry) => {
+    const minutes = Math.round(Number(entry.amount || 0) * 60);
+    totalMinutes += minutes;
+    rows.push([
+      formatDate(entry.date),
+      String(minutes),
+      entry.note || 'No reason entered',
+    ]);
+  });
+
+  const totalHours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+  rows.push(['', '', '']);
+  rows.push(['TOTAL', `${totalHours}h ${remainingMinutes}m`, '']);
+
+  const exportDate = formatLocalDate(new Date());
+  downloadCsvFile(`ttb-export-${exportDate}.csv`, rows);
+}
+
 function addEntry(type, action, amount, note) {
   state.entries.unshift({
     id: crypto.randomUUID(),
@@ -561,6 +613,10 @@ resetSelectedFortnightBtn.addEventListener('click', () => {
   state.fortnightData[state.currentFortnightKey] = resetDays;
   saveState();
   render();
+});
+
+exportTtbBtn.addEventListener('click', () => {
+  exportTtbCsv();
 });
 
 tabButtons.forEach((button) => {
