@@ -15,6 +15,8 @@ const defaultState = {
     startingDay: 0,
     defaultStartTime: '08:00',
     defaultFinishTime: '16:30',
+    colorScheme: 'fern',
+    customColor: '#5f8f68',
   },
   timesheetDays: [],
   currentFortnightKey: '',
@@ -53,6 +55,42 @@ const addDayBtn = document.getElementById('addDayBtn');
 const useDayBtn = document.getElementById('useDayBtn');
 const profileForm = document.getElementById('profileForm');
 const settingsForm = document.getElementById('settingsForm');
+const colorSchemeEl = document.getElementById('colorScheme');
+const customColorInputEl = document.getElementById('customColor');
+const themeSwatchesEl = document.getElementById('themeSwatches');
+const bugReportCategoryEl = document.getElementById('bugReportCategory');
+const bugReportSeverityEl = document.getElementById('bugReportSeverity');
+const bugReportDetailsEl = document.getElementById('bugReportDetails');
+const bugReportCountEl = document.getElementById('bugReportCount');
+const copyBugReportBtn = document.getElementById('copyBugReportBtn');
+const sendBugReportBtn = document.getElementById('sendBugReportBtn');
+const bugReportStatusEl = document.getElementById('bugReportStatus');
+
+const SUPPORT_EMAIL = 'david.andrews@seatingtogo.co.nz';
+const BUG_REPORT_ENDPOINT = `https://formsubmit.co/ajax/${encodeURIComponent(SUPPORT_EMAIL)}`;
+const BUG_REPORT_DRAFT_KEY = 'balancetrack-bug-report-v1';
+
+const COLOR_SCHEMES = {
+  fern: { themeColor: '#5f8f68' },
+  ocean: { themeColor: '#2f7392' },
+  sunrise: { themeColor: '#bf6e2c' },
+  slate: { themeColor: '#46556d' },
+};
+
+const CUSTOM_THEME_VARIABLES = [
+  '--bg',
+  '--panel',
+  '--panel-soft',
+  '--border',
+  '--text',
+  '--muted',
+  '--accent',
+  '--accent-rgb',
+  '--accent-2',
+  '--accent-2-rgb',
+  '--accent-strong',
+  '--accent-soft',
+];
 
 let supabaseClient = null;
 let authListenerAttached = false;
@@ -84,6 +122,222 @@ function loadState() {
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   queueCloudSync();
+}
+
+function normalizeColorScheme(colorScheme) {
+  if (colorScheme === 'custom') return 'custom';
+  return Object.prototype.hasOwnProperty.call(COLOR_SCHEMES, colorScheme) ? colorScheme : 'fern';
+}
+
+function normalizeCustomColor(rawColor) {
+  const color = String(rawColor || '').trim();
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '#5f8f68';
+}
+
+function hexToRgb(hexColor) {
+  const color = normalizeCustomColor(hexColor);
+  return {
+    r: Number.parseInt(color.slice(1, 3), 16),
+    g: Number.parseInt(color.slice(3, 5), 16),
+    b: Number.parseInt(color.slice(5, 7), 16),
+  };
+}
+
+function toRgbString({ r, g, b }) {
+  return `${r}, ${g}, ${b}`;
+}
+
+function mixRgb(base, target, weight) {
+  const w = Math.max(0, Math.min(1, weight));
+  return {
+    r: Math.round(base.r + (target.r - base.r) * w),
+    g: Math.round(base.g + (target.g - base.g) * w),
+    b: Math.round(base.b + (target.b - base.b) * w),
+  };
+}
+
+function rgbToHex({ r, g, b }) {
+  const red = Math.max(0, Math.min(255, r)).toString(16).padStart(2, '0');
+  const green = Math.max(0, Math.min(255, g)).toString(16).padStart(2, '0');
+  const blue = Math.max(0, Math.min(255, b)).toString(16).padStart(2, '0');
+  return `#${red}${green}${blue}`;
+}
+
+function clearCustomThemeVariables() {
+  CUSTOM_THEME_VARIABLES.forEach((variable) => {
+    document.documentElement.style.removeProperty(variable);
+  });
+}
+
+function applyCustomTheme(customColor) {
+  const accent = hexToRgb(customColor);
+  const white = { r: 255, g: 255, b: 255 };
+  const nearWhite = { r: 250, g: 252, b: 248 };
+  const softGray = { r: 100, g: 114, b: 126 };
+  const deepSlate = { r: 23, g: 33, b: 43 };
+
+  const accent2 = mixRgb(accent, white, 0.36);
+  const accentStrong = mixRgb(accent, deepSlate, 0.24);
+  const bg = mixRgb(accent, nearWhite, 0.9);
+  const panelSoft = mixRgb(accent, white, 0.95);
+  const border = mixRgb(accent, white, 0.82);
+  const muted = mixRgb(accent, softGray, 0.68);
+  const text = mixRgb(accent, deepSlate, 0.84);
+
+  document.documentElement.style.setProperty('--bg', rgbToHex(bg));
+  document.documentElement.style.setProperty('--panel', '#ffffff');
+  document.documentElement.style.setProperty('--panel-soft', rgbToHex(panelSoft));
+  document.documentElement.style.setProperty('--border', rgbToHex(border));
+  document.documentElement.style.setProperty('--text', rgbToHex(text));
+  document.documentElement.style.setProperty('--muted', rgbToHex(muted));
+  document.documentElement.style.setProperty('--accent', rgbToHex(accent));
+  document.documentElement.style.setProperty('--accent-rgb', toRgbString(accent));
+  document.documentElement.style.setProperty('--accent-2', rgbToHex(accent2));
+  document.documentElement.style.setProperty('--accent-2-rgb', toRgbString(accent2));
+  document.documentElement.style.setProperty('--accent-strong', rgbToHex(accentStrong));
+  document.documentElement.style.setProperty('--accent-soft', `rgba(${toRgbString(accent)}, 0.16)`);
+}
+
+function applyColorScheme(colorScheme) {
+  const normalizedScheme = normalizeColorScheme(colorScheme);
+  const themeColorMetaEl = document.querySelector('meta[name="theme-color"]');
+
+  if (normalizedScheme === 'custom') {
+    const customColor = normalizeCustomColor(state.settings.customColor);
+    state.settings.customColor = customColor;
+    document.documentElement.dataset.theme = 'custom';
+    applyCustomTheme(customColor);
+    if (themeColorMetaEl) themeColorMetaEl.setAttribute('content', customColor);
+    return normalizedScheme;
+  }
+
+  clearCustomThemeVariables();
+  document.documentElement.dataset.theme = normalizedScheme;
+  if (themeColorMetaEl) {
+    themeColorMetaEl.setAttribute('content', COLOR_SCHEMES[normalizedScheme].themeColor);
+  }
+  return normalizedScheme;
+}
+
+function renderThemeSwatches() {
+  if (!themeSwatchesEl) return;
+  const normalizedScheme = normalizeColorScheme(state.settings.colorScheme);
+  const customColor = normalizeCustomColor(state.settings.customColor);
+
+  themeSwatchesEl.querySelectorAll('.theme-swatch').forEach((swatch) => {
+    const isActive = swatch.dataset.scheme === normalizedScheme;
+    swatch.classList.toggle('active', isActive);
+    swatch.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+
+  const customSwatch = themeSwatchesEl.querySelector('.theme-swatch.custom');
+  if (customSwatch) {
+    customSwatch.style.background = `linear-gradient(135deg, ${customColor}, #ffffff)`;
+  }
+}
+
+function buildBugReportMessage(details) {
+  const accountEmail = String(authEmailEl?.value || '').trim() || 'Not provided';
+  const category = String(bugReportCategoryEl?.value || 'general');
+  const severity = String(bugReportSeverityEl?.value || 'medium');
+  const lines = [
+    'Issue details:',
+    details,
+    '',
+    'Context:',
+    `Category: ${category}`,
+    `Severity: ${severity}`,
+    `Account email: ${accountEmail}`,
+    `URL: ${window.location.href}`,
+    `User agent: ${navigator.userAgent}`,
+    `Time: ${new Date().toISOString()}`,
+  ];
+  return lines.join('\n');
+}
+
+function buildBugReportMailto(details) {
+  const subject = 'BalanceTrack bug report';
+  const body = buildBugReportMessage(details);
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function setBugReportStatus(message, isError = false) {
+  if (!bugReportStatusEl) return;
+  bugReportStatusEl.hidden = false;
+  bugReportStatusEl.textContent = message;
+  bugReportStatusEl.classList.toggle('error', isError);
+  bugReportStatusEl.classList.toggle('success', !isError);
+}
+
+function clearBugReportStatus() {
+  if (!bugReportStatusEl) return;
+  bugReportStatusEl.hidden = true;
+  bugReportStatusEl.textContent = '';
+  bugReportStatusEl.classList.remove('error', 'success');
+}
+
+function updateBugReportCount() {
+  if (!bugReportCountEl) return;
+  const length = String(bugReportDetailsEl?.value || '').length;
+  bugReportCountEl.textContent = `${length} / 1000`;
+}
+
+function saveBugReportDraft() {
+  const payload = {
+    category: String(bugReportCategoryEl?.value || 'general'),
+    severity: String(bugReportSeverityEl?.value || 'medium'),
+    details: String(bugReportDetailsEl?.value || ''),
+  };
+  localStorage.setItem(BUG_REPORT_DRAFT_KEY, JSON.stringify(payload));
+}
+
+function loadBugReportDraft() {
+  try {
+    const raw = localStorage.getItem(BUG_REPORT_DRAFT_KEY);
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (bugReportCategoryEl && typeof draft.category === 'string') {
+      bugReportCategoryEl.value = draft.category;
+    }
+    if (bugReportSeverityEl && typeof draft.severity === 'string') {
+      bugReportSeverityEl.value = draft.severity;
+    }
+    if (bugReportDetailsEl && typeof draft.details === 'string') {
+      bugReportDetailsEl.value = draft.details;
+    }
+    updateBugReportCount();
+  } catch (_error) {
+    // Ignore malformed draft content
+  }
+}
+
+async function sendBugReport(details) {
+  const senderEmail = String(authEmailEl?.value || '').trim();
+  const payload = {
+    _subject: 'BalanceTrack bug report',
+    _captcha: 'false',
+    _template: 'table',
+    email: senderEmail || 'noreply@balancetrack.local',
+    message: buildBugReportMessage(details),
+  };
+
+  const response = await fetch(BUG_REPORT_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`request failed (${response.status})`);
+  }
+
+  const result = await response.json().catch(() => ({}));
+  if (result.success === 'false') {
+    throw new Error(result.message || 'mail service rejected request');
+  }
 }
 
 function getSyncableState() {
@@ -644,9 +898,17 @@ function renderProfile() {
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
+  const normalizedScheme = normalizeColorScheme(state.settings.colorScheme);
+  if (colorSchemeEl) colorSchemeEl.value = normalizedScheme;
+  if (customColorInputEl) {
+    customColorInputEl.value = normalizeCustomColor(state.settings.customColor);
+    customColorInputEl.disabled = normalizedScheme !== 'custom';
+  }
+  renderThemeSwatches();
 }
 
 function render() {
+  state.settings.colorScheme = applyColorScheme(state.settings.colorScheme);
   ensureTimesheetDays();
   renderDashboard();
   renderEntries();
@@ -772,6 +1034,73 @@ exportTtbBtn?.addEventListener('click', () => {
   exportTtbCsv();
 });
 
+sendBugReportBtn?.addEventListener('click', () => {
+  const details = String(bugReportDetailsEl?.value || '').trim();
+  if (!details) {
+    setBugReportStatus('Please describe the issue before sending.', true);
+    return;
+  }
+
+  if (sendBugReportBtn) {
+    sendBugReportBtn.disabled = true;
+    sendBugReportBtn.setAttribute('aria-busy', 'true');
+  }
+  setBugReportStatus('Sending bug report...');
+
+  (async () => {
+    try {
+      await sendBugReport(details);
+      setBugReportStatus(`Bug report sent to ${SUPPORT_EMAIL}.`);
+      if (bugReportDetailsEl) {
+        bugReportDetailsEl.value = '';
+        saveBugReportDraft();
+        updateBugReportCount();
+      }
+    } catch (error) {
+      setBugReportStatus(`Could not send automatically (${error.message}). Opening email draft instead.`, true);
+      window.location.href = buildBugReportMailto(details);
+    } finally {
+      if (sendBugReportBtn) {
+        sendBugReportBtn.disabled = false;
+        sendBugReportBtn.setAttribute('aria-busy', 'false');
+      }
+    }
+  })();
+});
+
+bugReportDetailsEl?.addEventListener('input', () => {
+  saveBugReportDraft();
+  updateBugReportCount();
+  clearBugReportStatus();
+});
+
+bugReportCategoryEl?.addEventListener('change', () => {
+  saveBugReportDraft();
+  clearBugReportStatus();
+});
+
+bugReportSeverityEl?.addEventListener('change', () => {
+  saveBugReportDraft();
+  clearBugReportStatus();
+});
+
+copyBugReportBtn?.addEventListener('click', () => {
+  const details = String(bugReportDetailsEl?.value || '').trim();
+  if (!details) {
+    setBugReportStatus('Add issue details before copying the report.', true);
+    return;
+  }
+
+  const message = buildBugReportMessage(details);
+  navigator.clipboard.writeText(message)
+    .then(() => {
+      setBugReportStatus('Report details copied to clipboard.');
+    })
+    .catch((error) => {
+      setBugReportStatus(`Could not copy report (${error.message}).`, true);
+    });
+});
+
 authSignUpBtn?.addEventListener('click', () => {
   const values = validateAuthInputs();
   if (!values) return;
@@ -841,7 +1170,14 @@ profileForm?.addEventListener('input', (event) => {
 
 settingsForm?.addEventListener('input', (event) => {
   const { name, value } = event.target;
-  if (name === 'startingTtb' || name === 'startingDay') {
+  if (name === 'colorScheme') {
+    state.settings.colorScheme = normalizeColorScheme(value);
+    state.settings.colorScheme = applyColorScheme(state.settings.colorScheme);
+  } else if (name === 'customColor') {
+    state.settings.customColor = normalizeCustomColor(value);
+    state.settings.colorScheme = 'custom';
+    state.settings.colorScheme = applyColorScheme('custom');
+  } else if (name === 'startingTtb' || name === 'startingDay') {
     const parsed = parseQuarterHourValue(value);
     state.settings[name] = parsed ?? 0;
   } else if (name === 'defaultStartTime' || name === 'defaultFinishTime') {
@@ -867,6 +1203,17 @@ settingsForm?.addEventListener('input', (event) => {
     saveState();
   }
 
+  render();
+});
+
+themeSwatchesEl?.addEventListener('click', (event) => {
+  const swatch = event.target.closest('.theme-swatch');
+  if (!swatch) return;
+
+  const scheme = normalizeColorScheme(swatch.dataset.scheme || 'fern');
+  state.settings.colorScheme = scheme;
+  state.settings.colorScheme = applyColorScheme(scheme);
+  saveState();
   render();
 });
 
@@ -903,6 +1250,8 @@ if ('serviceWorker' in navigator) {
 
 render();
 switchTab('dashboard');
+loadBugReportDraft();
+updateBugReportCount();
 
 connectSupabase().catch((error) => {
   setAuthStatus(`Connect failed: ${error.message}`, true);

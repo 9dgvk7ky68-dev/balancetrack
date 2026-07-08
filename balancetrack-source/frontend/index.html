@@ -144,6 +144,27 @@
                   Default finish time
                   <input id="defaultFinishTime" name="defaultFinishTime" type="time" />
                 </label>
+                <label>
+                  Colour scheme
+                  <select id="colorScheme" name="colorScheme">
+                    <option value="fern">Fern (default)</option>
+                    <option value="ocean">Ocean</option>
+                    <option value="sunrise">Sunrise</option>
+                    <option value="slate">Slate</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </label>
+                <label>
+                  Custom accent colour
+                  <input id="customColor" name="customColor" type="color" value="#5f8f68" />
+                </label>
+                <div id="themeSwatches" class="theme-swatches" aria-label="Theme swatches">
+                  <button class="theme-swatch" type="button" data-scheme="fern" title="Fern"></button>
+                  <button class="theme-swatch" type="button" data-scheme="ocean" title="Ocean"></button>
+                  <button class="theme-swatch" type="button" data-scheme="sunrise" title="Sunrise"></button>
+                  <button class="theme-swatch" type="button" data-scheme="slate" title="Slate"></button>
+                  <button class="theme-swatch custom" type="button" data-scheme="custom" title="Custom"></button>
+                </div>
               </form>
             </div>
 
@@ -197,6 +218,47 @@
               </div>
               <div class="settings-form">
                 <button id="exportTtbBtn" class="btn btn-secondary" type="button">Export TTB CSV</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Support</p>
+                  <h2>Report a bug</h2>
+                </div>
+              </div>
+              <div class="settings-form">
+                <div class="bug-report-meta">
+                  <label>
+                    Category
+                    <select id="bugReportCategory">
+                      <option value="general">General</option>
+                      <option value="auth">Sign-in / account</option>
+                      <option value="timesheet">Timesheet</option>
+                      <option value="sync">Sync / cloud</option>
+                      <option value="ui">UI / design</option>
+                    </select>
+                  </label>
+                  <label>
+                    Severity
+                    <select id="bugReportSeverity">
+                      <option value="low">Low</option>
+                      <option value="medium" selected>Medium</option>
+                      <option value="high">High</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  What happened?
+                  <textarea id="bugReportDetails" rows="5" maxlength="1000" placeholder="Describe the issue, what you expected, and how to reproduce it."></textarea>
+                </label>
+                <span id="bugReportCount" class="auth-status">0 / 1000</span>
+                <button id="copyBugReportBtn" class="btn btn-ghost" type="button">Copy report details</button>
+                <button id="sendBugReportBtn" class="btn btn-secondary" type="button">Email bug report</button>
+                <span id="bugReportStatus" class="bug-report-status" hidden></span>
+                <span class="auth-status">Reports are prepared for david.andrews@seatingtogo.co.nz with device and app details included.</span>
               </div>
             </div>
           </section>
