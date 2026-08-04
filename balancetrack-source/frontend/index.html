@@ -301,16 +301,6 @@
       </div>
     </div>
 
-    <script>
-      const LIVE_APP_URL = 'https://agent-6a66ad4388a6e58c309cbb40--ttbtrack.netlify.app/';
-      const isPreviewHost = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
-        || window.location.hostname.includes('github.dev')
-        || window.location.hostname.includes('app.github.dev');
-
-      if (isPreviewHost && window.location.href !== LIVE_APP_URL) {
-        window.location.replace(LIVE_APP_URL);
-      }
-    </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./app.js"></script>
   </body>
