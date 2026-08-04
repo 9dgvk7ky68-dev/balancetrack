@@ -32,7 +32,7 @@
               <article class="card highlight">
                 <p>TTB balance</p>
                 <div class="metric-stack">
-                  <strong id="ttbBalance">0h 0m</strong>
+                  <strong id="ttbBalance">00h 00m</strong>
                   <span id="ttbBalanceDays">0.00 days</span>
                 </div>
                 <div class="quick-actions">
@@ -42,7 +42,7 @@
               </article>
               <article class="card">
                 <p>Days in lieu</p>
-                <strong id="dayBalance">0.0d</strong>
+                <strong id="dayBalance">0.00d</strong>
                 <div class="quick-actions">
                   <button class="btn btn-secondary" id="addDayBtn">Add day</button>
                   <button class="btn btn-ghost" id="useDayBtn">Use day</button>
@@ -50,8 +50,8 @@
               </article>
               <article class="card">
                 <p>Fortnight summary</p>
-                <strong id="fortnightSummary">0.0h worked</strong>
-                <span id="fortnightOt">0.0h OT accrued</span>
+                <strong id="fortnightSummary">0.00h worked</strong>
+                <span id="fortnightOt">0.00h OT accrued</span>
               </article>
               <article class="card">
                 <p>Latest entry</p>
@@ -145,6 +145,13 @@
                   <input id="defaultFinishTime" name="defaultFinishTime" type="time" />
                 </label>
                 <label>
+                  Time display
+                  <select id="timeFormat" name="timeFormat">
+                    <option value="12h">12-hour (AM/PM)</option>
+                    <option value="24h">24-hour</option>
+                  </select>
+                </label>
+                <label>
                   Colour scheme
                   <select id="colorScheme" name="colorScheme">
                     <option value="fern">Fern (default)</option>
@@ -217,7 +224,7 @@
                 </div>
               </div>
               <div class="settings-form">
-                <button id="exportTtbBtn" class="btn btn-secondary" type="button">Export TTB CSV</button>
+                <button id="exportTtbBtn" class="btn btn-secondary" type="button">Export</button>
               </div>
             </div>
 
@@ -294,6 +301,16 @@
       </div>
     </div>
 
+    <script>
+      const LIVE_APP_URL = 'https://agent-6a66ad4388a6e58c309cbb40--ttbtrack.netlify.app/';
+      const isPreviewHost = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
+        || window.location.hostname.includes('github.dev')
+        || window.location.hostname.includes('app.github.dev');
+
+      if (isPreviewHost && window.location.href !== LIVE_APP_URL) {
+        window.location.replace(LIVE_APP_URL);
+      }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./app.js"></script>
   </body>

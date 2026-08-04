@@ -15,6 +15,7 @@ const defaultState = {
     startingDay: 0,
     defaultStartTime: '08:00',
     defaultFinishTime: '16:30',
+    timeFormat: '12h',
     colorScheme: 'fern',
     customColor: '#5f8f68',
   },
@@ -22,7 +23,6 @@ const defaultState = {
   currentFortnightKey: '',
   fortnightData: {},
 };
-
 const state = loadState();
 state.currentFortnightKey = getFortnightKey(getMondayOfCurrentWeek());
 state.fortnightData = state.fortnightData || {};
@@ -365,6 +365,12 @@ function applyRemoteState(appState) {
     : {};
 }
 
+function updateAuthUI(user) {
+  if (authSignUpBtn) authSignUpBtn.hidden = Boolean(user);
+  if (authSignInBtn) authSignInBtn.hidden = Boolean(user);
+  if (authSignOutBtn) authSignOutBtn.hidden = !user;
+}
+
 async function connectSupabase() {
   if (!window.supabase?.createClient) {
     setAuthStatus('Supabase library failed to load. Refresh and try again.', true);
@@ -375,9 +381,12 @@ async function connectSupabase() {
 
   if (!authListenerAttached) {
     supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+      updateAuthUI(session?.user || null);
       currentUserId = session?.user?.id || null;
       if (currentUserId) {
-        authEmailEl.value = session.user.email || authEmailEl.value;
+        if (authEmailEl) {
+          authEmailEl.value = session.user.email || authEmailEl.value;
+        }
         setAuthStatus(`Connected as ${session.user.email}. Syncing...`);
         await pullStateFromCloud();
       } else {
@@ -564,7 +573,17 @@ function setCurrentFortnight(anchorDate) {
 
 function toMinutes(time) {
   if (!time) return 0;
-  const [hours, minutes] = time.split(':').map(Number);
+  const normalizedTime = String(time).trim();
+  const explicitMatch = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(normalizedTime);
+  if (explicitMatch) {
+    let hours = Number(explicitMatch[1]);
+    const minutes = Number(explicitMatch[2]);
+    if (explicitMatch[3].toUpperCase() === 'PM' && hours < 12) hours += 12;
+    if (explicitMatch[3].toUpperCase() === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  }
+
+  const [hours, minutes] = normalizedTime.split(':').map(Number);
   return hours * 60 + minutes;
 }
 
@@ -636,20 +655,75 @@ function parseQuarterHourValue(rawValue) {
   return scaled / 4;
 }
 
+function formatHoursValue(hours, precision = 2) {
+  return Number(hours || 0).toFixed(precision);
+}
+
+function formatQuarterHoursValue(hours) {
+  return Number(hours || 0)
+    .toFixed(2)
+    .replace(/\.00$/, '')
+    .replace(/(\.\d)0$/, '$1');
+}
+
 function formatTtbAmount(hours) {
-  const totalMinutes = Math.round(Number(hours || 0) * 60);
-  const wholeHours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (wholeHours && minutes) return `${wholeHours}h ${minutes}m`;
-  if (wholeHours) return `${wholeHours}h`;
-  if (minutes) return `${minutes}m`;
-  return '0m';
+  return `${formatHoursValue(hours)}h`;
 }
 
 function formatAmount(type, amount, action) {
   const sign = action === 'used' ? '-' : '+';
   if (type === 'day') return `${sign}${Number(amount).toFixed(2)}d`;
   return `${sign}${formatTtbAmount(amount)}`;
+}
+
+function formatTimeForDisplay(timeValue, overrideFormat) {
+  if (!timeValue) return '';
+  const use12Hour = overrideFormat ? overrideFormat === '12h' : state.settings.timeFormat === '12h';
+  const normalizedValue = String(timeValue).trim();
+  const match = /^(\d{1,2}):(\d{2})$/.exec(normalizedValue);
+  if (!match) {
+    const twelveHourMatch = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(normalizedValue);
+    if (twelveHourMatch) {
+      return normalizedValue.replace(/\s+/g, ' ');
+    }
+    return normalizedValue;
+  }
+
+  const hours = Number(match[1]);
+  const minutes = match[2];
+  if (!use12Hour) {
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
+  }
+
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  const twelveHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${twelveHour}:${minutes} ${suffix}`;
+}
+
+function parseDisplayTime(rawValue, overrideFormat) {
+  const textValue = String(rawValue || '').trim();
+  if (!textValue) return '';
+
+  const use12Hour = overrideFormat ? overrideFormat === '12h' : state.settings.timeFormat === '12h';
+  const explicitMatch = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(textValue);
+  if (explicitMatch) {
+    let hours = Number(explicitMatch[1]);
+    const minutes = Number(explicitMatch[2]);
+    if (minutes % 15 !== 0) return null;
+    if (explicitMatch[3].toUpperCase() === 'PM' && hours < 12) hours += 12;
+    if (explicitMatch[3].toUpperCase() === 'AM' && hours === 12) hours = 0;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+
+  const simpleMatch = /^(\d{1,2}):(\d{2})$/.exec(textValue);
+  if (simpleMatch) {
+    const hours = Number(simpleMatch[1]);
+    const minutes = Number(simpleMatch[2]);
+    if (minutes % 15 !== 0) return null;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+
+  return null;
 }
 
 function formatDate(dateString) {
@@ -737,36 +811,74 @@ function downloadCsvFile(fileName, rows) {
   URL.revokeObjectURL(url);
 }
 
-function exportTtbCsv() {
+function downloadTextFile(fileName, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function buildTtbExportRows() {
   const earnedTtbEntries = state.entries
     .filter((entry) => entry.type === 'ttb' && entry.action === 'earned')
     .slice()
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
   if (!earnedTtbEntries.length) {
-    window.alert('No earned TTB entries available to export yet.');
-    return;
+    throw new Error('No earned TTB entries available to export yet.');
   }
 
-  const rows = [['Date', 'TTB added (minutes)', 'Reason']];
-  let totalMinutes = 0;
+  const rows = [['Date', 'TTB added (hours)', 'Reason']];
+  let totalHours = 0;
 
   earnedTtbEntries.forEach((entry) => {
-    const minutes = Math.round(Number(entry.amount || 0) * 60);
-    totalMinutes += minutes;
+    const hours = Number(entry.amount || 0);
+    totalHours += hours;
     rows.push([
       formatDate(entry.date),
-      String(minutes),
+      formatHoursValue(hours),
       entry.note || 'No reason entered',
     ]);
   });
 
-  const totalHours = Math.floor(totalMinutes / 60);
-  const remainingMinutes = totalMinutes % 60;
   rows.push(['', '', '']);
-  rows.push(['TOTAL', `${totalHours}h ${remainingMinutes}m`, '']);
+  rows.push(['TOTAL', formatHoursValue(totalHours), '']);
+  return rows;
+}
 
+function exportTtbReport(format = 'csv') {
+  const rows = buildTtbExportRows();
   const exportDate = formatLocalDate(new Date());
+
+  if (format === 'excel') {
+    const htmlTable = `<!DOCTYPE html><html><body><table>${rows.map((row) => `<tr>${row.map((cell) => `<td>${String(cell).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>`).join('')}</tr>`).join('')}</table></body></html>`;
+    downloadTextFile(`ttb-export-${exportDate}.xls`, htmlTable, 'application/vnd.ms-excel');
+    return;
+  }
+
+  if (format === 'word') {
+    const document = `<!DOCTYPE html><html><body><h1>TTB Export</h1><table>${rows.map((row) => `<tr>${row.map((cell) => `<td>${String(cell).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>`).join('')}</tr>`).join('')}</table></body></html>`;
+    downloadTextFile(`ttb-export-${exportDate}.doc`, document, 'application/msword');
+    return;
+  }
+
+  if (format === 'pdf') {
+    const printHtml = `<!DOCTYPE html><html><body><h1>TTB Export</h1><table>${rows.map((row) => `<tr>${row.map((cell) => `<td>${String(cell).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>`).join('')}</tr>`).join('')}</table><script>window.onload = () => window.print();</script></body></html>`;
+    const popup = window.open('', '_blank', 'width=800,height=900');
+    if (!popup) {
+      window.alert('Please allow popups to export as PDF.');
+      return;
+    }
+    popup.document.write(printHtml);
+    popup.document.close();
+    return;
+  }
+
   downloadCsvFile(`ttb-export-${exportDate}.csv`, rows);
 }
 
@@ -813,16 +925,13 @@ function renderDashboard() {
 
   const ttbHours = Number(balances.ttb || 0);
   const ttbDays = ttbHours / 8;
-  const totalMinutes = Math.round(ttbHours * 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (ttbBalanceEl) ttbBalanceEl.textContent = `${hours}h ${minutes}m`;
+  if (ttbBalanceEl) ttbBalanceEl.textContent = `${formatHoursValue(ttbHours)}h`;
   if (ttbBalanceDaysEl) ttbBalanceDaysEl.textContent = `${ttbDays.toFixed(2)} days`;
-  if (dayBalanceEl) dayBalanceEl.textContent = `${balances.day.toFixed(1)}d`;
+  if (dayBalanceEl) dayBalanceEl.textContent = `${formatHoursValue(balances.day)}d`;
 
   const { totalWorked, totalOT } = recalculateTimesheet();
-  if (fortnightSummaryEl) fortnightSummaryEl.textContent = `${totalWorked.toFixed(1)}h worked`;
-  if (fortnightOtEl) fortnightOtEl.textContent = `${totalOT.toFixed(1)}h OT accrued`;
+  if (fortnightSummaryEl) fortnightSummaryEl.textContent = `${formatHoursValue(totalWorked)}h worked`;
+  if (fortnightOtEl) fortnightOtEl.textContent = `${formatHoursValue(totalOT)}h OT accrued`;
 
   if (latestEntryEl) {
     latestEntryEl.textContent = latest ? `${latest.type === 'ttb' ? 'TTB' : 'Days in lieu'} · ${formatDate(latest.date)}` : 'No entries yet';
@@ -875,14 +984,14 @@ function renderTimesheet() {
           </div>
           <label class="time-input">
             <span>Start</span>
-            <input type="time" data-field="start" value="${day.start || ''}" ${day.isWeekend ? 'disabled' : ''} />
+            <input type="text" data-field="start" value="${formatTimeForDisplay(day.start)}" ${day.isWeekend ? 'disabled' : ''} placeholder="${state.settings.timeFormat === '12h' ? '8:00 AM' : '08:00'}" inputmode="numeric" />
           </label>
           <label class="time-input">
             <span>Finish</span>
-            <input type="time" data-field="finish" value="${day.finish || ''}" ${day.isWeekend ? 'disabled' : ''} />
+            <input type="text" data-field="finish" value="${formatTimeForDisplay(day.finish)}" ${day.isWeekend ? 'disabled' : ''} placeholder="${state.settings.timeFormat === '12h' ? '4:30 PM' : '16:30'}" inputmode="numeric" />
           </label>
-          <div class="hours-pill">${daySummary.workedHours.toFixed(1)}h</div>
-          <div class="ot-pill">${daySummary.overtime.toFixed(1)}h OT</div>
+          <div class="hours-pill">${formatQuarterHoursValue(daySummary.workedHours)}h</div>
+          <div class="ot-pill">${formatQuarterHoursValue(daySummary.overtime)}h OT</div>
         </div>
       `;
     })
@@ -898,6 +1007,7 @@ function renderProfile() {
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
+  document.getElementById('timeFormat').value = state.settings.timeFormat || '12h';
   const normalizedScheme = normalizeColorScheme(state.settings.colorScheme);
   if (colorSchemeEl) colorSchemeEl.value = normalizedScheme;
   if (customColorInputEl) {
@@ -972,13 +1082,16 @@ function addTtbQuickEntry(action) {
         return;
       }
 
+      const extraReason = window.prompt('Add a reason for this extra time worked', 'Extra time worked');
+      if (extraReason === null) return;
+
       const applied = applyExtraTimeToDate(normalizedDate, parsedValue);
       if (!applied) {
         window.alert('Could not apply extra time to that date. Please try again.');
         return;
       }
 
-      note = `${selectedReason} (${normalizedDate})`;
+      note = `${selectedReason} (${normalizedDate}) - ${String(extraReason).trim() || 'No reason entered'}`;
     } else {
       note = selectedReason;
     }
@@ -1031,7 +1144,29 @@ resetSelectedFortnightBtn?.addEventListener('click', () => {
 });
 
 exportTtbBtn?.addEventListener('click', () => {
-  exportTtbCsv();
+  const selectedFormat = window.prompt(
+    'Choose export format:\n1. Excel\n2. Word\n3. PDF\n4. CSV',
+    '1'
+  );
+  if (selectedFormat === null) return;
+
+  const formatMap = {
+    1: 'excel',
+    2: 'word',
+    3: 'pdf',
+    4: 'csv',
+  };
+  const resolvedFormat = formatMap[Number(String(selectedFormat).trim())];
+  if (!resolvedFormat) {
+    window.alert('Please choose 1, 2, 3, or 4.');
+    return;
+  }
+
+  try {
+    exportTtbReport(resolvedFormat);
+  } catch (error) {
+    window.alert(error.message || 'Could not export TTB data.');
+  }
 });
 
 sendBugReportBtn?.addEventListener('click', () => {
@@ -1182,6 +1317,8 @@ settingsForm?.addEventListener('input', (event) => {
     state.settings[name] = parsed ?? 0;
   } else if (name === 'defaultStartTime' || name === 'defaultFinishTime') {
     state.settings[name] = value;
+  } else if (name === 'timeFormat') {
+    state.settings.timeFormat = value === '24h' ? '24h' : '12h';
   } else {
     state.settings[name] = Number(value) || 0;
   }
@@ -1226,17 +1363,24 @@ timesheetDaysEl?.addEventListener('change', (event) => {
   const day = state.timesheetDays[index];
   if (!day) return;
 
-  day[field] = event.target.value;
+  const parsedTime = parseDisplayTime(event.target.value, state.settings.timeFormat);
+  if (parsedTime === null) {
+    window.alert('Please enter times in 15-minute blocks only (00, 15, 30, 45).');
+    event.target.value = formatTimeForDisplay(day[field]);
+    return;
+  }
+
+  day[field] = parsedTime;
   saveCurrentFortnight();
 
   const daySummary = calculateDayHours(day);
   const hoursPill = row.querySelector('.hours-pill');
   const otPill = row.querySelector('.ot-pill');
   if (hoursPill) {
-    hoursPill.textContent = `${daySummary.workedHours.toFixed(1)}h`;
+    hoursPill.textContent = `${formatQuarterHoursValue(daySummary.workedHours)}h`;
   }
   if (otPill) {
-    otPill.textContent = `${daySummary.overtime.toFixed(1)}h OT`;
+    otPill.textContent = `${formatQuarterHoursValue(daySummary.overtime)}h OT`;
   }
 
   renderDashboard();
