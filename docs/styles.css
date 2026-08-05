@@ -248,6 +248,10 @@ h1 {
   height: 20px;
 }
 
+.tab-label {
+  display: none;
+}
+
 .view {
   display: none;
 }
@@ -651,7 +655,7 @@ textarea {
   }
 
   .tab-nav {
-    position: fixed;
+    position: fixed !important;
     left: 50%;
     transform: translateX(-50%);
     bottom: calc(10px + env(safe-area-inset-bottom, 0px));
@@ -659,6 +663,28 @@ textarea {
     margin: 0;
     gap: 10px;
     z-index: 999;
+  }
+
+  .tab-btn {
+    width: 94px;
+    height: 58px;
+    border-radius: 16px;
+    align-content: center;
+    gap: 2px;
+  }
+
+  .tab-icon {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.1;
+  }
+
+  .tab-label {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
   }
 
   .timesheet-row {
