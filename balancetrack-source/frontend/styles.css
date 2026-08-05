@@ -133,52 +133,6 @@ select {
   font-weight: 700;
 }
 
-.starting-ttb-picker {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(92px, 0.65fr);
-  gap: 8px;
-  align-items: stretch;
-}
-
-.wheel-column {
-  display: grid;
-  grid-auto-rows: 36px;
-  gap: 6px;
-  overflow-y: auto;
-  max-height: 140px;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--panel-soft);
-  scroll-snap-type: y mandatory;
-  scrollbar-width: none;
-}
-
-.wheel-column::-webkit-scrollbar {
-  display: none;
-}
-
-.wheel-column--fraction {
-  min-width: 90px;
-}
-
-.wheel-item {
-  border: 1px solid transparent;
-  border-radius: 12px;
-  background: transparent;
-  color: var(--muted);
-  text-align: center;
-  cursor: pointer;
-  scroll-snap-align: center;
-}
-
-.wheel-item.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-color: rgba(var(--accent-rgb), 0.2);
-  font-weight: 700;
-}
-
 .auth-remember {
   display: flex;
   gap: 10px;
@@ -189,12 +143,6 @@ select {
 
 .auth-remember input {
   width: auto;
-}
-
-.starting-ttb-picker select {
-  min-height: 112px;
-  max-height: 112px;
-  padding: 8px 10px;
 }
 
 .hero {

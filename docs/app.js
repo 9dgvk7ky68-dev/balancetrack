@@ -73,9 +73,6 @@ const choiceDialogTitleEl = document.getElementById('choiceDialogTitle');
 const choiceDialogMessageEl = document.getElementById('choiceDialogMessage');
 const choiceDialogActionsEl = document.getElementById('choiceDialogActions');
 const rememberSignInEl = document.getElementById('rememberSignIn');
-const startingTtbHiddenEl = document.getElementById('startingTtb');
-const startingTtbHoursWheelEl = document.getElementById('startingTtbHoursWheel');
-const startingTtbFractionWheelEl = document.getElementById('startingTtbFractionWheel');
 
 const SUPPORT_EMAIL = 'david.andrews@seatingtogo.co.nz';
 const BUG_REPORT_ENDPOINT = `https://formsubmit.co/ajax/${encodeURIComponent(SUPPORT_EMAIL)}`;
@@ -106,9 +103,9 @@ const CUSTOM_THEME_VARIABLES = [
 
 let supabaseClient = null;
 let authListenerAttached = false;
-let currentUserId = null;
+  if (!selectEl || selectEl.options.length) return;
 let syncTimer = null;
-let isApplyingRemoteState = false;
+  for (let hours = 0; hours <= 30; hours += 1) {
 
 function loadState() {
   try {
@@ -116,111 +113,8 @@ function loadState() {
     if (!raw) {
       return structuredClone(defaultState);
     }
-    const parsed = JSON.parse(raw);
-    return {
-      entries: Array.isArray(parsed.entries) ? parsed.entries : [],
-      profile: {
-        ...defaultState.profile,
-        ...(parsed.profile || {}),
-        location: (parsed.profile && (parsed.profile.location || parsed.profile.department)) || '',
-      },
-      settings: { ...defaultState.settings, ...(parsed.settings || {}) },
-      timesheetDays: Array.isArray(parsed.timesheetDays) ? parsed.timesheetDays : [],
-      currentFortnightKey: typeof parsed.currentFortnightKey === 'string' ? parsed.currentFortnightKey : '',
-      fortnightData: parsed.fortnightData && typeof parsed.fortnightData === 'object' ? parsed.fortnightData : {},
-    };
   } catch (error) {
-    console.warn('Could not load state', error);
-    return structuredClone(defaultState);
-  }
-}
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  queueCloudSync();
-}
-
-function normalizeColorScheme(colorScheme) {
-  if (colorScheme === 'custom') return 'custom';
-  return Object.prototype.hasOwnProperty.call(COLOR_SCHEMES, colorScheme) ? colorScheme : 'fern';
-}
-
-function normalizeCustomColor(rawColor) {
-  const color = String(rawColor || '').trim();
-  return /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '#5f8f68';
-}
-
-function hexToRgb(hexColor) {
-  const color = normalizeCustomColor(hexColor);
-  return {
-    r: Number.parseInt(color.slice(1, 3), 16),
-    g: Number.parseInt(color.slice(3, 5), 16),
-    b: Number.parseInt(color.slice(5, 7), 16),
-  };
-}
-
-function toRgbString({ r, g, b }) {
-  return `${r}, ${g}, ${b}`;
-}
-
-function mixRgb(base, target, weight) {
-  const w = Math.max(0, Math.min(1, weight));
-  return {
-    r: Math.round(base.r + (target.r - base.r) * w),
-    g: Math.round(base.g + (target.g - base.g) * w),
-    b: Math.round(base.b + (target.b - base.b) * w),
-  };
-}
-
-function rgbToHex({ r, g, b }) {
-  const red = Math.max(0, Math.min(255, r)).toString(16).padStart(2, '0');
-  const green = Math.max(0, Math.min(255, g)).toString(16).padStart(2, '0');
-  const blue = Math.max(0, Math.min(255, b)).toString(16).padStart(2, '0');
-  return `#${red}${green}${blue}`;
-}
-
-function clearCustomThemeVariables() {
-  CUSTOM_THEME_VARIABLES.forEach((variable) => {
-    document.documentElement.style.removeProperty(variable);
-  });
-}
-
-function applyCustomTheme(customColor) {
-  const accent = hexToRgb(customColor);
-  const white = { r: 255, g: 255, b: 255 };
-  const nearWhite = { r: 250, g: 252, b: 248 };
-  const softGray = { r: 100, g: 114, b: 126 };
-  const deepSlate = { r: 23, g: 33, b: 43 };
-
-  const accent2 = mixRgb(accent, white, 0.36);
-  const accentStrong = mixRgb(accent, deepSlate, 0.24);
-  const bg = mixRgb(accent, nearWhite, 0.9);
-  const panelSoft = mixRgb(accent, white, 0.95);
-  const border = mixRgb(accent, white, 0.82);
-  const muted = mixRgb(accent, softGray, 0.68);
-  const text = mixRgb(accent, deepSlate, 0.84);
-
-  document.documentElement.style.setProperty('--bg', rgbToHex(bg));
-  document.documentElement.style.setProperty('--panel', '#ffffff');
-  document.documentElement.style.setProperty('--panel-soft', rgbToHex(panelSoft));
-  document.documentElement.style.setProperty('--border', rgbToHex(border));
-  document.documentElement.style.setProperty('--text', rgbToHex(text));
-  document.documentElement.style.setProperty('--muted', rgbToHex(muted));
-  document.documentElement.style.setProperty('--accent', rgbToHex(accent));
-  document.documentElement.style.setProperty('--accent-rgb', toRgbString(accent));
-  document.documentElement.style.setProperty('--accent-2', rgbToHex(accent2));
-  document.documentElement.style.setProperty('--accent-2-rgb', toRgbString(accent2));
-  document.documentElement.style.setProperty('--accent-strong', rgbToHex(accentStrong));
-  document.documentElement.style.setProperty('--accent-soft', `rgba(${toRgbString(accent)}, 0.16)`);
-}
-
-function applyColorScheme(colorScheme) {
-  const normalizedScheme = normalizeColorScheme(colorScheme);
-  const themeColorMetaEl = document.querySelector('meta[name="theme-color"]');
-
-  if (normalizedScheme === 'custom') {
-    const customColor = normalizeCustomColor(state.settings.customColor);
-    state.settings.customColor = customColor;
+  return Number(state.settings.startingTtb || 0);
     document.documentElement.dataset.theme = 'custom';
     applyCustomTheme(customColor);
     if (themeColorMetaEl) themeColorMetaEl.setAttribute('content', customColor);
@@ -1345,7 +1239,7 @@ function renderProfile() {
   if (managerEmailEl) managerEmailEl.value = state.profile.managerEmail || '';
   if (locationEl) locationEl.value = state.profile.location || '';
   document.getElementById('role').value = state.profile.role;
-  renderStartingTtbPicker();
+  document.getElementById('startingTtb').value = String(state.settings.startingTtb || 0);
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
@@ -1664,16 +1558,14 @@ rememberSignInEl?.addEventListener('change', saveAuthDraft);
 
 settingsForm?.addEventListener('input', (event) => {
   const { name, value } = event.target;
-  if (name === 'startingTtbHours' || name === 'startingTtbFraction') {
-    state.settings.startingTtb = getStartingTtbValueFromPicker();
-  } else if (name === 'colorScheme') {
+  if (name === 'colorScheme') {
     state.settings.colorScheme = normalizeColorScheme(value);
     state.settings.colorScheme = applyColorScheme(state.settings.colorScheme);
   } else if (name === 'customColor') {
     state.settings.customColor = normalizeCustomColor(value);
     state.settings.colorScheme = 'custom';
     state.settings.colorScheme = applyColorScheme('custom');
-  } else if (name === 'startingDay') {
+  } else if (name === 'startingTtb' || name === 'startingDay') {
     const parsed = parseQuarterHourValue(value);
     state.settings[name] = parsed ?? 0;
   } else if (name === 'defaultStartTime' || name === 'defaultFinishTime') {

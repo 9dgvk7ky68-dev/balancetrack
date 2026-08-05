@@ -73,9 +73,6 @@ const choiceDialogTitleEl = document.getElementById('choiceDialogTitle');
 const choiceDialogMessageEl = document.getElementById('choiceDialogMessage');
 const choiceDialogActionsEl = document.getElementById('choiceDialogActions');
 const rememberSignInEl = document.getElementById('rememberSignIn');
-const startingTtbHiddenEl = document.getElementById('startingTtb');
-const startingTtbHoursWheelEl = document.getElementById('startingTtbHoursWheel');
-const startingTtbFractionWheelEl = document.getElementById('startingTtbFractionWheel');
 
 const SUPPORT_EMAIL = 'david.andrews@seatingtogo.co.nz';
 const BUG_REPORT_ENDPOINT = `https://formsubmit.co/ajax/${encodeURIComponent(SUPPORT_EMAIL)}`;
@@ -253,7 +250,7 @@ function renderThemeSwatches() {
 }
 
 function populateStartingTtbOptions(selectEl) {
-  if (!selectEl || selectEl.childElementCount) return;
+  if (!selectEl || selectEl.options.length) return;
 
   for (let hours = 0; hours <= 30; hours += 1) {
     const option = document.createElement('option');
@@ -264,8 +261,6 @@ function populateStartingTtbOptions(selectEl) {
 }
 
 function populateStartingTtbWheel(selectEl, values) {
-  if (!selectEl || selectEl.childElementCount) return;
-
   values.forEach((value) => {
     const option = document.createElement('option');
     option.value = String(value.value);
@@ -275,97 +270,7 @@ function populateStartingTtbWheel(selectEl, values) {
 }
 
 function getStartingTtbValueFromPicker() {
-  const hours = Number(startingTtbHoursWheelEl?.querySelector('.wheel-item.active')?.dataset.value || 0);
-  const fraction = Number(startingTtbFractionWheelEl?.querySelector('.wheel-item.active')?.dataset.value || 0);
-  return Math.min(30, hours + fraction);
-}
-
-function selectWheelItem(wheelEl, value) {
-  if (!wheelEl) return;
-  wheelEl.querySelectorAll('.wheel-item').forEach((item) => {
-    const isActive = item.dataset.value === String(value);
-    item.classList.toggle('active', isActive);
-    item.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    if (isActive) {
-      item.scrollIntoView({ block: 'center', inline: 'nearest' });
-    }
-  });
-}
-
-function syncStartingTtbFromWheels() {
-  const selectedValue = getStartingTtbValueFromPicker();
-  if (startingTtbHiddenEl) startingTtbHiddenEl.value = String(selectedValue);
-  state.settings.startingTtb = selectedValue;
-  saveState();
-}
-
-function bindWheelPicker(wheelEl, onChange) {
-  if (!wheelEl || wheelEl.dataset.bound === 'true') return;
-  wheelEl.dataset.bound = 'true';
-  let scrollTimer = null;
-
-  const resolveActiveItem = () => {
-    const items = Array.from(wheelEl.querySelectorAll('.wheel-item'));
-    if (!items.length) return;
-    const center = wheelEl.getBoundingClientRect().top + wheelEl.clientHeight / 2;
-    let closestItem = items[0];
-    let closestDistance = Infinity;
-
-    items.forEach((item) => {
-      const rect = item.getBoundingClientRect();
-      const itemCenter = rect.top + rect.height / 2;
-      const distance = Math.abs(itemCenter - center);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestItem = item;
-      }
-    });
-
-    wheelEl.querySelectorAll('.wheel-item').forEach((item) => item.classList.remove('active'));
-    closestItem.classList.add('active');
-    closestItem.setAttribute('aria-pressed', 'true');
-    onChange?.();
-  };
-
-  wheelEl.addEventListener('scroll', () => {
-    window.clearTimeout(scrollTimer);
-    scrollTimer = window.setTimeout(resolveActiveItem, 80);
-  });
-
-  wheelEl.addEventListener('click', (event) => {
-    const item = event.target.closest('.wheel-item');
-    if (!item) return;
-    wheelEl.querySelectorAll('.wheel-item').forEach((entry) => entry.classList.remove('active'));
-    item.classList.add('active');
-    item.setAttribute('aria-pressed', 'true');
-    item.scrollIntoView({ block: 'center', inline: 'nearest' });
-    onChange?.();
-  });
-}
-
-function renderStartingTtbPicker() {
-  const currentValue = Number(state.settings.startingTtb || 0);
-  const wholeHours = Math.max(0, Math.min(30, Math.floor(currentValue)));
-  const fraction = Number((currentValue - wholeHours).toFixed(2));
-
-  if (startingTtbHoursWheelEl && !startingTtbHoursWheelEl.childElementCount) {
-    populateStartingTtbOptions(startingTtbHoursWheelEl);
-    bindWheelPicker(startingTtbHoursWheelEl, syncStartingTtbFromWheels);
-  }
-
-  if (startingTtbFractionWheelEl && !startingTtbFractionWheelEl.childElementCount) {
-    populateStartingTtbWheel(startingTtbFractionWheelEl, [
-      { value: 0, label: '.00' },
-      { value: 0.25, label: '.25' },
-      { value: 0.5, label: '.50' },
-      { value: 0.75, label: '.75' },
-    ]);
-    bindWheelPicker(startingTtbFractionWheelEl, syncStartingTtbFromWheels);
-  }
-
-  selectWheelItem(startingTtbHoursWheelEl, wholeHours);
-  selectWheelItem(startingTtbFractionWheelEl, [0, 0.25, 0.5, 0.75].includes(fraction) ? fraction : 0);
-  if (startingTtbHiddenEl) startingTtbHiddenEl.value = String(currentValue);
+  return Number(state.settings.startingTtb || 0);
 }
 
 function escapeHtml(value) {
@@ -1313,7 +1218,7 @@ function renderProfile() {
   if (managerEmailEl) managerEmailEl.value = state.profile.managerEmail || '';
   if (locationEl) locationEl.value = state.profile.location || '';
   document.getElementById('role').value = state.profile.role;
-  renderStartingTtbPicker();
+  document.getElementById('startingTtb').value = String(state.settings.startingTtb || 0);
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
@@ -1632,16 +1537,14 @@ rememberSignInEl?.addEventListener('change', saveAuthDraft);
 
 settingsForm?.addEventListener('input', (event) => {
   const { name, value } = event.target;
-  if (name === 'startingTtbHours' || name === 'startingTtbFraction') {
-    state.settings.startingTtb = getStartingTtbValueFromPicker();
-  } else if (name === 'colorScheme') {
+  if (name === 'colorScheme') {
     state.settings.colorScheme = normalizeColorScheme(value);
     state.settings.colorScheme = applyColorScheme(state.settings.colorScheme);
   } else if (name === 'customColor') {
     state.settings.customColor = normalizeCustomColor(value);
     state.settings.colorScheme = 'custom';
     state.settings.colorScheme = applyColorScheme('custom');
-  } else if (name === 'startingDay') {
+  } else if (name === 'startingTtb' || name === 'startingDay') {
     const parsed = parseQuarterHourValue(value);
     state.settings[name] = parsed ?? 0;
   } else if (name === 'defaultStartTime' || name === 'defaultFinishTime') {

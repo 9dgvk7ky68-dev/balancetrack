@@ -134,12 +134,7 @@
               <form id="settingsForm" class="settings-form">
                 <label>
                   Starting TTB balance
-                  <input id="startingTtb" name="startingTtb" type="hidden" value="0" />
-                  <div class="starting-ttb-picker" aria-label="Starting TTB balance picker">
-                    <div id="startingTtbHoursWheel" class="wheel-column" aria-label="Whole hours"></div>
-                    <div id="startingTtbFractionWheel" class="wheel-column wheel-column--fraction" aria-label="Quarter hours"></div>
-                  </div>
-                  <span class="field-hint">Use the picker to choose quarter-hour steps up to 30 hours.</span>
+                  <input id="startingTtb" name="startingTtb" type="number" step="0.25" inputmode="decimal" autocomplete="off" placeholder="e.g. 19.75" />
                 </label>
                 <label>
                   Starting days in lieu
