@@ -73,9 +73,7 @@
   --danger-strong: #8a4440;
 }
 
-*,
-*::before,
-*::after {
+* {
   box-sizing: border-box;
 }
 
@@ -171,42 +169,48 @@ select {
 }
 
 .hero {
-  .tab-nav {
-    display: flex;
-    gap: 8px;
-    margin: 0 0 14px;
-    flex-wrap: wrap;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  background: linear-gradient(135deg, #ffffff 0%, var(--panel-soft) 100%);
+  border: 1px solid var(--border);
+  padding: 16px;
+  border-radius: 22px;
+  margin-bottom: 12px;
+}
 
-  .tab-btn {
-    border: 1px solid var(--border);
-    background: var(--panel);
-    color: var(--muted);
-    border-radius: 999px;
-    padding: 8px 14px;
-    cursor: pointer;
-    box-shadow: 0 6px 16px rgba(19, 34, 24, 0.06);
-  }
+.eyebrow {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+  color: var(--accent);
+  font-weight: 700;
+}
 
-  .tab-btn.active {
-    background: var(--accent-soft);
-    color: var(--accent);
-    border-color: transparent;
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  line-height: 1.1;
+}
+
+.hero-copy {
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.tab-nav {
   position: sticky;
   bottom: 10px;
-
-.starting-ttb-picker {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(92px, 0.65fr);
-  gap: 8px;
-  align-items: stretch;
-}
-
-.starting-ttb-picker select {
-  min-height: 112px;
-  max-height: 112px;
-  padding: 8px 10px;
-}
+  z-index: 20;
   display: flex;
   justify-content: center;
   gap: 12px;
@@ -504,16 +508,6 @@ textarea {
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--panel-soft);
-.field-hint {
-  color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.4;
-}
-.field-value {
-  color: var(--accent);
-  font-size: 0.9rem;
-  font-weight: 700;
-}
   color: var(--text);
 }
 
