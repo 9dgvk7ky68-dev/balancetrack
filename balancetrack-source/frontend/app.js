@@ -658,11 +658,41 @@ function buildFreshAppState() {
   const freshState = structuredClone(defaultState);
   const freshFortnightStart = getMondayOfCurrentWeek();
   freshState.currentFortnightKey = getFortnightKey(freshFortnightStart);
-  freshState.timesheetDays = buildFortnightDays(freshFortnightStart);
+  freshState.timesheetDays = Array.from({ length: 14 }, (_, index) => {
+    const date = new Date(freshFortnightStart);
+    date.setDate(freshFortnightStart.getDate() + index);
+    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+    return {
+      date: formatLocalDate(date),
+      label: formatLongDate(formatLocalDate(date)),
+      isWeekend,
+      start: isWeekend ? '' : defaultState.settings.defaultStartTime,
+      finish: isWeekend ? '' : defaultState.settings.defaultFinishTime,
+      workedHours: isWeekend ? 0 : 8,
+      overtime: 0,
+    };
+  });
   freshState.fortnightData = {
     [freshState.currentFortnightKey]: freshState.timesheetDays.map((day) => ({ ...day })),
   };
   return freshState;
+}
+
+function collectResetValidationIssues() {
+  const issues = [];
+  if (state.entries.length !== 0) issues.push('activity log is not empty');
+  if (String(state.profile.staffName || '').trim() !== '') issues.push('staff name is not blank');
+  if (String(state.profile.managerName || '').trim() !== '') issues.push('manager name is not blank');
+  if (String(state.profile.managerEmail || '').trim() !== '') issues.push('manager email is not blank');
+  if (String(state.profile.location || '').trim() !== '') issues.push('location is not blank');
+  if (String(state.profile.role || '').trim() !== '') issues.push('role is not blank');
+  if (Number(state.settings.startingTtb || 0) !== 0) issues.push('starting TTB is not zero');
+  if (Number(state.settings.startingDay || 0) !== 0) issues.push('starting days in lieu is not zero');
+
+  const balances = calculateBalances();
+  if (Number((balances.ttb || 0).toFixed(2)) !== 0) issues.push('TTB balance is not zero');
+  if (Number((balances.day || 0).toFixed(2)) !== 0) issues.push('days in lieu balance is not zero');
+  return issues;
 }
 
 function updateAuthUI(user) {
@@ -1619,11 +1649,13 @@ resetAllDataBtn?.addEventListener('click', () => {
 
     isResettingAllData = true;
     try {
+      setAuthStatus('Resetting all data...');
       const freshState = buildFreshAppState();
       applyRemoteState(freshState);
 
       localStorage.removeItem(BUG_REPORT_DRAFT_KEY);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.clearTimeout(syncTimer);
       render();
 
       const payload = {
@@ -1641,7 +1673,13 @@ resetAllDataBtn?.addEventListener('click', () => {
         return;
       }
 
-      setAuthStatus('All data was reset. You are now starting from a clean slate.');
+      await pullStateFromCloud();
+      const resetIssues = collectResetValidationIssues();
+      if (resetIssues.length) {
+        setAuthStatus(`Reset completed, but validation found issues: ${resetIssues.join(', ')}`, true);
+        return;
+      }
+      setAuthStatus('All data was reset. Dashboard and settings are now zero/blank for this signed-in account.');
     } finally {
       isResettingAllData = false;
     }

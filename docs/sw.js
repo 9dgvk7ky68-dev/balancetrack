@@ -1,4 +1,4 @@
-const CACHE_NAME = 'balancetrack-v15';
+const CACHE_NAME = 'balancetrack-v16';
 const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './manifest.json', './icons/icon-192.svg', './icons/icon-512.svg'];
 
 self.addEventListener('install', (event) => {
