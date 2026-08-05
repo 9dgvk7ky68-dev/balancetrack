@@ -270,7 +270,7 @@ function populateStartingTtbFractionOptions(selectEl) {
     { value: 0.75, label: '.75' },
   ].forEach((value) => {
     const option = document.createElement('option');
-    option.dataset.value = String(value.value);
+    option.value = String(value.value);
     option.textContent = value.label;
     selectEl.appendChild(option);
   });
