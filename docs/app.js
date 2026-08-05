@@ -250,12 +250,31 @@ function renderThemeSwatches() {
 function populateStartingTtbOptions(selectEl) {
   if (!selectEl || selectEl.options.length) return;
 
-  for (let hours = 0; hours <= 30 + 1e-9; hours += 0.25) {
+  for (let hours = 0; hours <= 30; hours += 1) {
     const option = document.createElement('option');
-    option.value = hours.toFixed(2).replace(/\.00$/, '');
-    option.textContent = `${hours.toFixed(2)}h`;
+    option.value = String(hours);
+    option.textContent = `${hours}h`;
     selectEl.appendChild(option);
   }
+}
+
+function populateStartingTtbWheel(selectEl, values) {
+  if (!selectEl || selectEl.options.length) return;
+
+  values.forEach((value) => {
+    const option = document.createElement('option');
+    option.value = String(value.value);
+    option.textContent = value.label;
+    selectEl.appendChild(option);
+  });
+}
+
+function getStartingTtbValueFromPicker() {
+  const hoursEl = document.getElementById('startingTtbHours');
+  const fractionEl = document.getElementById('startingTtbFraction');
+  const hours = Number(hoursEl?.value || 0);
+  const fraction = Number(fractionEl?.value || 0);
+  return Math.min(30, hours + fraction);
 }
 
 function escapeHtml(value) {
@@ -1174,9 +1193,20 @@ function renderProfile() {
   if (managerEmailEl) managerEmailEl.value = state.profile.managerEmail || '';
   if (locationEl) locationEl.value = state.profile.location || '';
   document.getElementById('role').value = state.profile.role;
-  const startingTtbEl = document.getElementById('startingTtb');
-  populateStartingTtbOptions(startingTtbEl);
-  if (startingTtbEl) startingTtbEl.value = String(Number(state.settings.startingTtb || 0).toFixed(2).replace(/\.00$/, ''));
+  const startingTtbHoursEl = document.getElementById('startingTtbHours');
+  const startingTtbFractionEl = document.getElementById('startingTtbFraction');
+  populateStartingTtbOptions(startingTtbHoursEl);
+  populateStartingTtbWheel(startingTtbFractionEl, [
+    { value: 0, label: '.00' },
+    { value: 0.25, label: '.25' },
+    { value: 0.5, label: '.50' },
+    { value: 0.75, label: '.75' },
+  ]);
+  const normalizedStartingTtb = Number(state.settings.startingTtb || 0);
+  const wholeHours = Math.max(0, Math.min(30, Math.floor(normalizedStartingTtb)));
+  const fraction = Number((normalizedStartingTtb - wholeHours).toFixed(2));
+  if (startingTtbHoursEl) startingTtbHoursEl.value = String(wholeHours);
+  if (startingTtbFractionEl) startingTtbFractionEl.value = String([0, 0.25, 0.5, 0.75].includes(fraction) ? fraction : 0);
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
@@ -1487,14 +1517,16 @@ profileForm?.addEventListener('input', (event) => {
 
 settingsForm?.addEventListener('input', (event) => {
   const { name, value } = event.target;
-  if (name === 'colorScheme') {
+  if (name === 'startingTtbHours' || name === 'startingTtbFraction') {
+    state.settings.startingTtb = getStartingTtbValueFromPicker();
+  } else if (name === 'colorScheme') {
     state.settings.colorScheme = normalizeColorScheme(value);
     state.settings.colorScheme = applyColorScheme(state.settings.colorScheme);
   } else if (name === 'customColor') {
     state.settings.customColor = normalizeCustomColor(value);
     state.settings.colorScheme = 'custom';
     state.settings.colorScheme = applyColorScheme('custom');
-  } else if (name === 'startingTtb' || name === 'startingDay') {
+  } else if (name === 'startingDay') {
     const parsed = parseQuarterHourValue(value);
     state.settings[name] = parsed ?? 0;
   } else if (name === 'defaultStartTime' || name === 'defaultFinishTime') {
