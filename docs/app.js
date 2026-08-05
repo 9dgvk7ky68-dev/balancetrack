@@ -108,6 +108,7 @@ let authListenerAttached = false;
 let currentUserId = null;
 let syncTimer = null;
 let isApplyingRemoteState = false;
+let isResettingAllData = false;
 
 function loadState() {
   try {
@@ -683,6 +684,17 @@ function resetStateToDefaults() {
   state.fortnightData = freshState.fortnightData;
 }
 
+function buildFreshAppState() {
+  const freshState = structuredClone(defaultState);
+  const freshFortnightStart = getMondayOfCurrentWeek();
+  freshState.currentFortnightKey = getFortnightKey(freshFortnightStart);
+  freshState.timesheetDays = buildFortnightDays(freshFortnightStart);
+  freshState.fortnightData = {
+    [freshState.currentFortnightKey]: freshState.timesheetDays.map((day) => ({ ...day })),
+  };
+  return freshState;
+}
+
 function updateAuthUI(user) {
   if (authSignUpBtn) authSignUpBtn.hidden = Boolean(user);
   if (authSignInBtn) authSignInBtn.hidden = Boolean(user);
@@ -704,6 +716,7 @@ async function connectSupabase() {
       updateAuthUI(session?.user || null);
       currentUserId = session?.user?.id || null;
       if (currentUserId) {
+        if (isResettingAllData) return;
         if (authEmailEl) {
           authEmailEl.value = session.user.email || authEmailEl.value;
         }
@@ -1636,12 +1649,34 @@ resetAllDataBtn?.addEventListener('click', () => {
       return;
     }
 
-    resetStateToDefaults();
-    localStorage.removeItem(BUG_REPORT_DRAFT_KEY);
-    saveState();
-    render();
-    await pushStateToCloud();
-    setAuthStatus('All data was reset. You are now starting from a clean slate.');
+    isResettingAllData = true;
+    try {
+      const freshState = buildFreshAppState();
+      applyRemoteState(freshState);
+
+      localStorage.removeItem(BUG_REPORT_DRAFT_KEY);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      render();
+
+      const payload = {
+        user_id: currentUserId,
+        app_state: freshState,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: resetError } = await client
+        .from(SUPABASE_TABLE)
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (resetError) {
+        setAuthStatus(`Reset completed locally, but cloud update failed: ${resetError.message}`, true);
+        return;
+      }
+
+      setAuthStatus('All data was reset. You are now starting from a clean slate.');
+    } finally {
+      isResettingAllData = false;
+    }
   })();
 });
 
