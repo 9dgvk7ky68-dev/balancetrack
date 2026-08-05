@@ -531,7 +531,12 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
   const inputType = config.inputType || 'text';
 
   return new Promise((resolve) => {
+    let datePickerInstance = null;
+
     const cleanup = () => {
+      if (datePickerInstance) {
+        datePickerInstance.destroy();
+      }
       choiceDialogActionsEl.innerHTML = '';
       choiceDialogMessageEl.innerHTML = '';
       choiceDialogEl.removeEventListener('cancel', cancelHandler);
@@ -558,13 +563,27 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
     choiceDialogMessageEl.appendChild(description);
 
     const input = document.createElement('input');
-    input.type = inputType;
+    input.type = inputType === 'date' ? 'text' : inputType;
     input.className = 'input';
     input.placeholder = placeholder;
     input.value = String(defaultValue || '');
     input.autocomplete = 'off';
     input.style.marginTop = '10px';
+    if (inputType === 'date') {
+      input.placeholder = 'dd/mm/yy';
+    }
     choiceDialogMessageEl.appendChild(input);
+
+    if (inputType === 'date' && typeof window.flatpickr === 'function') {
+      datePickerInstance = window.flatpickr(input, {
+        dateFormat: 'Y-m-d',
+        altInput: true,
+        altFormat: 'd/m/y',
+        defaultDate: String(defaultValue || ''),
+        disableMobile: true,
+        allowInput: false,
+      });
+    }
 
     choiceDialogActionsEl.innerHTML = '';
 
@@ -572,7 +591,12 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
     submitButton.type = 'button';
     submitButton.className = 'btn btn-secondary';
     submitButton.textContent = 'OK';
-    submitButton.addEventListener('click', () => finish(input.value));
+    submitButton.addEventListener('click', () => {
+      if (inputType === 'date' && datePickerInstance && !input.value) {
+        datePickerInstance.setDate(new Date(), true);
+      }
+      finish(input.value);
+    });
     choiceDialogActionsEl.appendChild(submitButton);
 
     const cancelButton = document.createElement('button');
@@ -591,6 +615,14 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
 
     choiceDialogEl.addEventListener('cancel', cancelHandler);
     choiceDialogEl.showModal();
+
+    if (inputType === 'date' && datePickerInstance) {
+      const focusTarget = datePickerInstance.altInput || input;
+      focusTarget.focus();
+      datePickerInstance.open();
+      return;
+    }
+
     input.focus();
     input.select();
   });
@@ -1527,7 +1559,7 @@ async function addTtbQuickEntry(action) {
         return;
       }
 
-      note = `${selectedReason} (${normalizedEntryDate}) - ${String(extraReason).trim() || 'No reason entered'}`;
+      note = `${selectedReason} (${formatDate(normalizedEntryDate)}) - ${String(extraReason).trim() || 'No reason entered'}`;
       addEntry('ttb', action, parsedValue, note, { source: 'timesheet-overtime', date: normalizedEntryDate });
       return;
     } else {
