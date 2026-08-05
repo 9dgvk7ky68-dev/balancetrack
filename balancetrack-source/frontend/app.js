@@ -583,8 +583,9 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
         disableMobile: true,
         allowInput: false,
         clickOpens: true,
-        appendTo: choiceDialogMessageEl,
-        static: true,
+        appendTo: choiceDialogEl,
+        positionElement: input,
+        static: false,
       });
     }
 
