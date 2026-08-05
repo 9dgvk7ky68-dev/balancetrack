@@ -247,6 +247,17 @@ function renderThemeSwatches() {
   }
 }
 
+function populateStartingTtbOptions(selectEl) {
+  if (!selectEl || selectEl.options.length) return;
+
+  for (let hours = 0; hours <= 30 + 1e-9; hours += 0.25) {
+    const option = document.createElement('option');
+    option.value = hours.toFixed(2).replace(/\.00$/, '');
+    option.textContent = `${hours.toFixed(2)}h`;
+    selectEl.appendChild(option);
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -1163,11 +1174,9 @@ function renderProfile() {
   if (managerEmailEl) managerEmailEl.value = state.profile.managerEmail || '';
   if (locationEl) locationEl.value = state.profile.location || '';
   document.getElementById('role').value = state.profile.role;
-  document.getElementById('startingTtb').value = String(state.settings.startingTtb ?? 0);
-  const startingTtbValueEl = document.getElementById('startingTtbValue');
-  if (startingTtbValueEl) {
-    startingTtbValueEl.textContent = `${formatHoursValue(state.settings.startingTtb)}h`;
-  }
+  const startingTtbEl = document.getElementById('startingTtb');
+  populateStartingTtbOptions(startingTtbEl);
+  if (startingTtbEl) startingTtbEl.value = String(Number(state.settings.startingTtb || 0).toFixed(2).replace(/\.00$/, ''));
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
