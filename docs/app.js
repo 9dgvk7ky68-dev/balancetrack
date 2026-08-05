@@ -1182,14 +1182,17 @@ function parseDisplayTime(rawValue, overrideFormat) {
 }
 
 function formatDate(dateString) {
-  const normalizedDate = typeof dateString === 'string' && dateString.length === 10
-    ? `${dateString}T12:00:00`
-    : dateString;
-  return new Date(normalizedDate).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const parsedDate = typeof dateString === 'string' && dateString.length === 10
+    ? parseLocalDate(dateString)
+    : new Date(dateString);
+  if (!(parsedDate instanceof Date) || Number.isNaN(parsedDate.getTime())) {
+    return '';
+  }
+
+  const day = String(parsedDate.getDate()).padStart(2, '0');
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+  const year = String(parsedDate.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
 }
 
 function toTimeString(totalMinutes) {
@@ -1476,6 +1479,26 @@ async function addTtbQuickEntry(action) {
     return;
   }
 
+  const defaultEntryDate = formatLocalDate(new Date());
+  const chosenEntryDate = await showPromptDialog(
+    'Select the date for this TTB entry.',
+    defaultEntryDate,
+    { title: 'Note:', inputType: 'date' }
+  );
+  if (chosenEntryDate === null) return;
+
+  const normalizedEntryDate = String(chosenEntryDate).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedEntryDate)) {
+    await showNoteDialog('Please select a valid date from the calendar.');
+    return;
+  }
+
+  const parsedEntryDate = parseLocalDate(normalizedEntryDate);
+  if (formatLocalDate(parsedEntryDate) !== normalizedEntryDate) {
+    await showNoteDialog('Please select a valid date from the calendar.');
+    return;
+  }
+
   let note = action === 'earned' ? 'Quick TTB add' : 'Quick TTB use';
   if (action === 'earned') {
     const selectedReason = await showChoiceDialog(
@@ -1491,26 +1514,6 @@ async function addTtbQuickEntry(action) {
     if (!selectedReason) return;
 
     if (selectedReason === 'Extra time worked') {
-      const defaultDate = formatLocalDate(new Date());
-      const chosenDate = await showPromptDialog(
-        'Enter date for this extra time (YYYY-MM-DD)',
-        defaultDate,
-        { title: 'Note:', placeholder: 'YYYY-MM-DD' }
-      );
-      if (chosenDate === null) return;
-
-      const normalizedDate = String(chosenDate).trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
-        await showNoteDialog('Please enter the date in YYYY-MM-DD format.');
-        return;
-      }
-
-      const parsedDate = parseLocalDate(normalizedDate);
-      if (formatLocalDate(parsedDate) !== normalizedDate) {
-        await showNoteDialog('Please enter a valid date in YYYY-MM-DD format.');
-        return;
-      }
-
       const extraReason = await showPromptDialog(
         'Add a reason for this extra time worked',
         'Extra time worked',
@@ -1518,21 +1521,21 @@ async function addTtbQuickEntry(action) {
       );
       if (extraReason === null) return;
 
-      const applied = applyExtraTimeToDate(normalizedDate, parsedValue);
+      const applied = applyExtraTimeToDate(normalizedEntryDate, parsedValue);
       if (!applied) {
         await showNoteDialog('Could not apply extra time to that date. Please try again.');
         return;
       }
 
-      note = `${selectedReason} (${normalizedDate}) - ${String(extraReason).trim() || 'No reason entered'}`;
-      addEntry('ttb', action, parsedValue, note, { source: 'timesheet-overtime', date: normalizedDate });
+      note = `${selectedReason} (${normalizedEntryDate}) - ${String(extraReason).trim() || 'No reason entered'}`;
+      addEntry('ttb', action, parsedValue, note, { source: 'timesheet-overtime', date: normalizedEntryDate });
       return;
     } else {
       note = selectedReason;
     }
   }
 
-  addEntry('ttb', action, parsedValue, note);
+  addEntry('ttb', action, parsedValue, note, { date: normalizedEntryDate });
 }
 
 addTtbBtn?.addEventListener('click', () => addTtbQuickEntry('earned'));
