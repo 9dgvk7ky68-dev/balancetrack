@@ -225,7 +225,7 @@ function applyColorScheme(colorScheme) {
     applyCustomTheme(customColor);
     if (themeColorMetaEl) themeColorMetaEl.setAttribute('content', customColor);
     return normalizedScheme;
-  }
+}
 
   clearCustomThemeVariables();
   document.documentElement.dataset.theme = normalizedScheme;
@@ -290,6 +290,36 @@ function getStartingTtbValueFromSelectors() {
 function syncStartingTtbFromSelectors() {
   state.settings.startingTtb = getStartingTtbValueFromSelectors();
   saveState();
+}
+
+function loadAuthDraft() {
+  try {
+    const raw = localStorage.getItem(AUTH_DRAFT_KEY);
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (authEmailEl && typeof draft.email === 'string') authEmailEl.value = draft.email;
+    if (authPasswordEl && typeof draft.password === 'string') authPasswordEl.value = draft.password;
+    if (rememberSignInEl) rememberSignInEl.checked = Boolean(draft.remember);
+  } catch (error) {
+    console.warn('Could not load saved sign-in details', error);
+  }
+}
+
+function saveAuthDraft() {
+  if (!rememberSignInEl?.checked) {
+    localStorage.removeItem(AUTH_DRAFT_KEY);
+    return;
+  }
+
+  localStorage.setItem(AUTH_DRAFT_KEY, JSON.stringify({
+    email: String(authEmailEl?.value || '').trim(),
+    password: String(authPasswordEl?.value || ''),
+    remember: true,
+  }));
+}
+
+function clearAuthDraft() {
+  localStorage.removeItem(AUTH_DRAFT_KEY);
 }
 
 function escapeHtml(value) {
@@ -382,14 +412,14 @@ function buildSheetPreviewHtml(title, rows) {
 </html>`;
 }
 
-function openSheetInBrowser(title, rows) {
+async function openSheetInBrowser(title, rows) {
   const previewHtml = buildSheetPreviewHtml(title, rows);
   const blob = new Blob([previewHtml], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const previewWindow = window.open(url, '_blank', 'noopener,noreferrer');
   if (!previewWindow) {
     URL.revokeObjectURL(url);
-    window.alert('Please allow popups to open the export sheet in a browser tab.');
+    await showNoteDialog('Please allow popups to open the export sheet in a browser tab.');
     return;
   }
   window.setTimeout(() => URL.revokeObjectURL(url), 60000);
@@ -420,10 +450,10 @@ function downloadSheet(format, rows) {
   throw new Error('Unsupported export format.');
 }
 
-function emailSheet(format, rows) {
+async function emailSheet(format, rows) {
   const profile = getProfileDetails();
   if (!profile.managerEmail) {
-    window.alert('Enter the manager email in Settings first.');
+    await showNoteDialog('Enter the manager email in Settings first.');
     return;
   }
 
@@ -475,6 +505,94 @@ async function showChoiceDialog(title, message, options) {
 
     choiceDialogEl.addEventListener('cancel', cancelHandler);
     choiceDialogEl.showModal();
+  });
+}
+
+async function showNoteDialog(message, title = 'Note:') {
+  await showChoiceDialog(title, message, [
+    { label: 'OK', value: 'ok', variant: 'btn-secondary' },
+  ]);
+}
+
+async function showConfirmDialog(message, title = 'Note:') {
+  const result = await showChoiceDialog(title, message, [
+    { label: 'Continue', value: 'continue', variant: 'btn-secondary' },
+  ]);
+  return result === 'continue';
+}
+
+async function showPromptDialog(message, defaultValue = '', config = {}) {
+  if (!choiceDialogEl || !choiceDialogTitleEl || !choiceDialogMessageEl || !choiceDialogActionsEl) {
+    return null;
+  }
+
+  const title = config.title || 'Note:';
+  const placeholder = config.placeholder || '';
+  const inputType = config.inputType || 'text';
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      choiceDialogActionsEl.innerHTML = '';
+      choiceDialogMessageEl.innerHTML = '';
+      choiceDialogEl.removeEventListener('cancel', cancelHandler);
+    };
+
+    const finish = (value) => {
+      if (choiceDialogEl.open) {
+        choiceDialogEl.close();
+      }
+      cleanup();
+      resolve(value);
+    };
+
+    const cancelHandler = (event) => {
+      event.preventDefault();
+      finish(null);
+    };
+
+    choiceDialogTitleEl.textContent = title;
+    choiceDialogMessageEl.innerHTML = '';
+
+    const description = document.createElement('span');
+    description.textContent = message || '';
+    choiceDialogMessageEl.appendChild(description);
+
+    const input = document.createElement('input');
+    input.type = inputType;
+    input.className = 'input';
+    input.placeholder = placeholder;
+    input.value = String(defaultValue || '');
+    input.autocomplete = 'off';
+    input.style.marginTop = '10px';
+    choiceDialogMessageEl.appendChild(input);
+
+    choiceDialogActionsEl.innerHTML = '';
+
+    const submitButton = document.createElement('button');
+    submitButton.type = 'button';
+    submitButton.className = 'btn btn-secondary';
+    submitButton.textContent = 'OK';
+    submitButton.addEventListener('click', () => finish(input.value));
+    choiceDialogActionsEl.appendChild(submitButton);
+
+    const cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.className = 'btn btn-ghost';
+    cancelButton.textContent = 'Cancel';
+    cancelButton.addEventListener('click', () => finish(null));
+    choiceDialogActionsEl.appendChild(cancelButton);
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        finish(input.value);
+      }
+    });
+
+    choiceDialogEl.addEventListener('cancel', cancelHandler);
+    choiceDialogEl.showModal();
+    input.focus();
+    input.select();
   });
 }
 
@@ -961,6 +1079,10 @@ function recalculateTimesheet() {
 function calculateBalances() {
   const manualNet = state.entries.reduce(
     (totals, entry) => {
+      const isTimesheetDerivedTtb = entry.type === 'ttb' && entry.action === 'earned' && entry.source === 'timesheet-overtime';
+      if (isTimesheetDerivedTtb) {
+        return totals;
+      }
       const delta = entry.action === 'used' ? -entry.amount : entry.amount;
       totals[entry.type === 'day' ? 'day' : 'ttb'] += delta;
       return totals;
@@ -1162,6 +1284,7 @@ function buildTtbExportRows() {
 
 function exportTtbReport(format = 'csv') {
   const rows = buildSheetRows();
+  const exportDate = formatLocalDate(new Date());
 
   if (format === 'browser') {
     openSheetInBrowser('TTB Export', rows);
@@ -1199,15 +1322,16 @@ function validateAuthInputs() {
   return { email, password };
 }
 
-function addEntry(type, action, amount, note) {
+function addEntry(type, action, amount, note, meta = {}) {
   state.entries.unshift({
     id: crypto.randomUUID(),
     type,
     action,
     amount,
     note,
+    source: String(meta.source || 'manual'),
     createdAt: new Date().toISOString(),
-    date: new Date().toISOString().slice(0, 10),
+    date: meta.date || new Date().toISOString().slice(0, 10),
   });
   saveState();
   render();
@@ -1325,6 +1449,7 @@ function render() {
   ensureTimesheetDays();
   renderDashboard();
   renderEntries();
+  const settingsForm = document.getElementById('settingsForm');
   renderTimesheet();
   renderProfile();
 }
@@ -1339,11 +1464,15 @@ function switchTab(tabName) {
 }
 
 async function addTtbQuickEntry(action) {
-  const rawValue = window.prompt('Enter TTB amount in quarter-hour steps (0.25, 0.5, 0.75, 1, etc.)', '0.25');
+  const rawValue = await showPromptDialog(
+    'Enter TTB amount in quarter-hour steps (0.25, 0.5, 0.75, 1, etc.)',
+    '0.25',
+    { title: 'Note:', placeholder: '0.25' }
+  );
   if (rawValue === null) return;
   const parsedValue = parseQuarterHourValue(rawValue);
   if (!parsedValue) {
-    window.alert('Please enter a positive value in quarter-hour increments such as 0.25, 0.5, 0.75, or 1.');
+    await showNoteDialog('Please enter a positive value in quarter-hour increments such as 0.25, 0.5, 0.75, or 1.');
     return;
   }
 
@@ -1363,31 +1492,41 @@ async function addTtbQuickEntry(action) {
 
     if (selectedReason === 'Extra time worked') {
       const defaultDate = formatLocalDate(new Date());
-      const chosenDate = window.prompt('Enter date for this extra time (YYYY-MM-DD)', defaultDate);
+      const chosenDate = await showPromptDialog(
+        'Enter date for this extra time (YYYY-MM-DD)',
+        defaultDate,
+        { title: 'Note:', placeholder: 'YYYY-MM-DD' }
+      );
       if (chosenDate === null) return;
 
       const normalizedDate = String(chosenDate).trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
-        window.alert('Please enter the date in YYYY-MM-DD format.');
+        await showNoteDialog('Please enter the date in YYYY-MM-DD format.');
         return;
       }
 
       const parsedDate = parseLocalDate(normalizedDate);
       if (formatLocalDate(parsedDate) !== normalizedDate) {
-        window.alert('Please enter a valid date in YYYY-MM-DD format.');
+        await showNoteDialog('Please enter a valid date in YYYY-MM-DD format.');
         return;
       }
 
-      const extraReason = window.prompt('Add a reason for this extra time worked', 'Extra time worked');
+      const extraReason = await showPromptDialog(
+        'Add a reason for this extra time worked',
+        'Extra time worked',
+        { title: 'Note:', placeholder: 'Reason' }
+      );
       if (extraReason === null) return;
 
       const applied = applyExtraTimeToDate(normalizedDate, parsedValue);
       if (!applied) {
-        window.alert('Could not apply extra time to that date. Please try again.');
+        await showNoteDialog('Could not apply extra time to that date. Please try again.');
         return;
       }
 
       note = `${selectedReason} (${normalizedDate}) - ${String(extraReason).trim() || 'No reason entered'}`;
+      addEntry('ttb', action, parsedValue, note, { source: 'timesheet-overtime', date: normalizedDate });
+      return;
     } else {
       note = selectedReason;
     }
@@ -1415,10 +1554,10 @@ nextFortnightBtn?.addEventListener('click', () => {
   render();
 });
 
-resetSelectedFortnightBtn?.addEventListener('click', () => {
+resetSelectedFortnightBtn?.addEventListener('click', async () => {
   const selectedDate = resetFortnightDateEl.value;
   if (!selectedDate) {
-    window.alert('Please select a date in the fortnight you want to reset.');
+    await showNoteDialog('Please select a date in the fortnight you want to reset.');
     return;
   }
 
@@ -1454,12 +1593,12 @@ exportTtbBtn?.addEventListener('click', async () => {
   try {
     const rows = buildSheetRows();
     if (action === 'browser') {
-      openSheetInBrowser('TTB Export', rows);
+      await openSheetInBrowser('TTB Export', rows);
       return;
     }
 
     if (action === 'email') {
-      emailSheet('csv', rows);
+      await emailSheet('csv', rows);
       return;
     }
 
@@ -1477,7 +1616,7 @@ exportTtbBtn?.addEventListener('click', async () => {
 
     downloadSheet(format, rows);
   } catch (error) {
-    window.alert(error.message || 'Could not export TTB data.');
+    await showNoteDialog(error.message || 'Could not export TTB data.');
   }
 });
 
@@ -1616,10 +1755,14 @@ resetAllDataBtn?.addEventListener('click', () => {
       return;
     }
 
-    const confirmed = window.confirm('This will erase all BalanceTrack data and start from scratch on all signed-in devices. Continue?');
+    const confirmed = await showConfirmDialog('This will erase all BalanceTrack data and start from scratch on all signed-in devices. Continue?', 'Note:');
     if (!confirmed) return;
 
-    const password = window.prompt('Enter your account password to confirm full reset.');
+    const password = await showPromptDialog('Enter your account password to confirm full reset.', '', {
+      title: 'Note:',
+      inputType: 'password',
+      placeholder: 'Password',
+    });
     if (password === null) return;
     if (password.length < 8) {
       setAuthStatus('Password must be at least 8 characters.', true);
@@ -1699,6 +1842,7 @@ profileForm?.addEventListener('input', (event) => {
 authEmailEl?.addEventListener('input', saveAuthDraft);
 authPasswordEl?.addEventListener('input', saveAuthDraft);
 rememberSignInEl?.addEventListener('change', saveAuthDraft);
+
 const handleSettingsFormChange = (event) => {
   const { name, value } = event.target;
   if (name === 'colorScheme') {
@@ -1757,7 +1901,7 @@ themeSwatchesEl?.addEventListener('click', (event) => {
   render();
 });
 
-timesheetDaysEl?.addEventListener('change', (event) => {
+timesheetDaysEl?.addEventListener('change', async (event) => {
   const row = event.target.closest('.timesheet-row');
   if (!row) return;
 
@@ -1768,7 +1912,7 @@ timesheetDaysEl?.addEventListener('change', (event) => {
 
   const parsedTime = parseDisplayTime(event.target.value, state.settings.timeFormat);
   if (parsedTime === null) {
-    window.alert('Please enter times in 15-minute blocks only (00, 15, 30, 45).');
+    await showNoteDialog('Please enter times in 15-minute blocks only (00, 15, 30, 45).');
     event.target.value = formatTimeForDisplay(day[field]);
     return;
   }
