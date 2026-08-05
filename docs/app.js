@@ -529,6 +529,12 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
   const title = config.title || 'Note:';
   const placeholder = config.placeholder || '';
   const inputType = config.inputType || 'text';
+  const isTouchDevice = Boolean(
+    window.matchMedia?.('(pointer: coarse)')?.matches
+    || /android|iphone|ipad|ipod/i.test(navigator.userAgent || '')
+  );
+  const useNativeDateInput = inputType === 'date' && isTouchDevice;
+  const useFlatpickrDateInput = inputType === 'date' && !useNativeDateInput;
 
   return new Promise((resolve) => {
     let datePickerInstance = null;
@@ -563,18 +569,34 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
     choiceDialogMessageEl.appendChild(description);
 
     const input = document.createElement('input');
-    input.type = inputType === 'date' ? 'text' : inputType;
+    input.type = useNativeDateInput ? 'date' : (useFlatpickrDateInput ? 'text' : inputType);
     input.className = 'input';
     input.placeholder = placeholder;
     input.value = String(defaultValue || '');
     input.autocomplete = 'off';
     input.style.marginTop = '10px';
-    if (inputType === 'date') {
+    if (useFlatpickrDateInput) {
       input.placeholder = 'dd/mm/yy';
     }
     choiceDialogMessageEl.appendChild(input);
 
-    if (inputType === 'date' && typeof window.flatpickr === 'function') {
+    let datePreviewEl = null;
+    if (inputType === 'date') {
+      datePreviewEl = document.createElement('span');
+      datePreviewEl.className = 'field-hint';
+      datePreviewEl.style.marginTop = '6px';
+      const hasDefaultDate = /^\d{4}-\d{2}-\d{2}$/.test(String(defaultValue || ''));
+      datePreviewEl.textContent = hasDefaultDate ? `Selected date: ${formatDate(String(defaultValue))}` : 'Selected date: none';
+      choiceDialogMessageEl.appendChild(datePreviewEl);
+      input.addEventListener('input', () => {
+        const value = String(input.value || '').trim();
+        datePreviewEl.textContent = /^\d{4}-\d{2}-\d{2}$/.test(value)
+          ? `Selected date: ${formatDate(value)}`
+          : 'Selected date: none';
+      });
+    }
+
+    if (useFlatpickrDateInput && typeof window.flatpickr === 'function') {
       datePickerInstance = window.flatpickr(input, {
         dateFormat: 'Y-m-d',
         altInput: true,
@@ -586,6 +608,12 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
         appendTo: choiceDialogEl,
         positionElement: input,
         static: false,
+        onValueUpdate: (_selectedDates, dateStr) => {
+          if (!datePreviewEl) return;
+          datePreviewEl.textContent = /^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ''))
+            ? `Selected date: ${formatDate(String(dateStr))}`
+            : 'Selected date: none';
+        },
       });
     }
 
@@ -596,8 +624,12 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
     submitButton.className = 'btn btn-secondary';
     submitButton.textContent = 'OK';
     submitButton.addEventListener('click', () => {
-      if (inputType === 'date' && datePickerInstance && !input.value) {
-        datePickerInstance.setDate(new Date(), true);
+      if (inputType === 'date' && !input.value) {
+        if (datePickerInstance) {
+          datePickerInstance.setDate(new Date(), true);
+        } else {
+          input.value = formatLocalDate(new Date());
+        }
       }
       finish(input.value);
     });
@@ -620,10 +652,22 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
     choiceDialogEl.addEventListener('cancel', cancelHandler);
     choiceDialogEl.showModal();
 
-    if (inputType === 'date' && datePickerInstance) {
+    if (useFlatpickrDateInput && datePickerInstance) {
       const focusTarget = datePickerInstance.altInput || input;
       focusTarget.focus();
       datePickerInstance.open();
+      return;
+    }
+
+    if (useNativeDateInput) {
+      input.focus();
+      if (typeof input.showPicker === 'function') {
+        try {
+          input.showPicker();
+        } catch (_error) {
+          // Some browsers require a trusted tap before opening programmatically.
+        }
+      }
       return;
     }
 
