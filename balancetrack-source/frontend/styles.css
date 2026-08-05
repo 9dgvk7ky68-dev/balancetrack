@@ -145,46 +145,53 @@ select {
   width: auto;
 }
 
-.hero {
-  display: flex;
-  flex-direction: column;
+.starting-ttb-group {
+  display: grid;
   gap: 8px;
-  align-items: flex-start;
-  background: linear-gradient(135deg, #ffffff 0%, var(--panel-soft) 100%);
-  border: 1px solid var(--border);
-  padding: 16px;
-  border-radius: 22px;
-  margin-bottom: 12px;
 }
 
-.eyebrow {
-  margin: 0 0 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.72rem;
-  color: var(--accent);
-  font-weight: 700;
+.starting-ttb-group > span {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
-h1,
-h2,
-p {
+.starting-ttb-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, 0.6fr);
+  gap: 8px;
+}
+
+.starting-ttb-picker label {
   margin: 0;
 }
 
-h1 {
-  font-size: clamp(1.7rem, 4vw, 2.3rem);
-  line-height: 1.1;
+.starting-ttb-picker select {
+  min-height: 44px;
 }
 
-.hero-copy {
-  color: var(--muted);
-  margin-top: 8px;
-  line-height: 1.5;
-  font-size: 0.95rem;
-}
+.hero {
+  .tab-nav {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 14px;
+    flex-wrap: wrap;
+  }
 
-.tab-nav {
+  .tab-btn {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 8px 14px;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(19, 34, 24, 0.06);
+  }
+
+  .tab-btn.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: transparent;
   position: sticky;
   bottom: 10px;
 

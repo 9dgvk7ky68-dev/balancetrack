@@ -103,9 +103,9 @@ const CUSTOM_THEME_VARIABLES = [
 
 let supabaseClient = null;
 let authListenerAttached = false;
-  if (!selectEl || selectEl.options.length) return;
+let currentUserId = null;
 let syncTimer = null;
-  for (let hours = 0; hours <= 30; hours += 1) {
+let isApplyingRemoteState = false;
 
 function loadState() {
   try {
@@ -113,13 +113,116 @@ function loadState() {
     if (!raw) {
       return structuredClone(defaultState);
     }
+    const parsed = JSON.parse(raw);
+    return {
+      entries: Array.isArray(parsed.entries) ? parsed.entries : [],
+      profile: {
+        ...defaultState.profile,
+        ...(parsed.profile || {}),
+        location: (parsed.profile && (parsed.profile.location || parsed.profile.department)) || '',
+      },
+      settings: { ...defaultState.settings, ...(parsed.settings || {}) },
+      timesheetDays: Array.isArray(parsed.timesheetDays) ? parsed.timesheetDays : [],
+      currentFortnightKey: typeof parsed.currentFortnightKey === 'string' ? parsed.currentFortnightKey : '',
+      fortnightData: parsed.fortnightData && typeof parsed.fortnightData === 'object' ? parsed.fortnightData : {},
+    };
   } catch (error) {
-  return Number(state.settings.startingTtb || 0);
+    console.warn('Could not load state', error);
+    return structuredClone(defaultState);
+  }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  queueCloudSync();
+}
+
+function normalizeColorScheme(colorScheme) {
+  if (colorScheme === 'custom') return 'custom';
+  return Object.prototype.hasOwnProperty.call(COLOR_SCHEMES, colorScheme) ? colorScheme : 'fern';
+}
+
+function normalizeCustomColor(rawColor) {
+  const color = String(rawColor || '').trim();
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '#5f8f68';
+}
+
+function hexToRgb(hexColor) {
+  const color = normalizeCustomColor(hexColor);
+  return {
+    r: Number.parseInt(color.slice(1, 3), 16),
+    g: Number.parseInt(color.slice(3, 5), 16),
+    b: Number.parseInt(color.slice(5, 7), 16),
+  };
+}
+
+function toRgbString({ r, g, b }) {
+  return `${r}, ${g}, ${b}`;
+}
+
+function mixRgb(base, target, weight) {
+  const w = Math.max(0, Math.min(1, weight));
+  return {
+    r: Math.round(base.r + (target.r - base.r) * w),
+    g: Math.round(base.g + (target.g - base.g) * w),
+    b: Math.round(base.b + (target.b - base.b) * w),
+  };
+}
+
+function rgbToHex({ r, g, b }) {
+  const red = Math.max(0, Math.min(255, r)).toString(16).padStart(2, '0');
+  const green = Math.max(0, Math.min(255, g)).toString(16).padStart(2, '0');
+  const blue = Math.max(0, Math.min(255, b)).toString(16).padStart(2, '0');
+  return `#${red}${green}${blue}`;
+}
+
+function clearCustomThemeVariables() {
+  CUSTOM_THEME_VARIABLES.forEach((variable) => {
+    document.documentElement.style.removeProperty(variable);
+  });
+}
+
+function applyCustomTheme(customColor) {
+  const accent = hexToRgb(customColor);
+  const white = { r: 255, g: 255, b: 255 };
+  const nearWhite = { r: 250, g: 252, b: 248 };
+  const softGray = { r: 100, g: 114, b: 126 };
+  const deepSlate = { r: 23, g: 33, b: 43 };
+
+  const accent2 = mixRgb(accent, white, 0.36);
+  const accentStrong = mixRgb(accent, deepSlate, 0.24);
+  const bg = mixRgb(accent, nearWhite, 0.9);
+  const panelSoft = mixRgb(accent, white, 0.95);
+  const border = mixRgb(accent, white, 0.82);
+  const muted = mixRgb(accent, softGray, 0.68);
+  const text = mixRgb(accent, deepSlate, 0.84);
+
+  document.documentElement.style.setProperty('--bg', rgbToHex(bg));
+  document.documentElement.style.setProperty('--panel', '#ffffff');
+  document.documentElement.style.setProperty('--panel-soft', rgbToHex(panelSoft));
+  document.documentElement.style.setProperty('--border', rgbToHex(border));
+  document.documentElement.style.setProperty('--text', rgbToHex(text));
+  document.documentElement.style.setProperty('--muted', rgbToHex(muted));
+  document.documentElement.style.setProperty('--accent', rgbToHex(accent));
+  document.documentElement.style.setProperty('--accent-rgb', toRgbString(accent));
+  document.documentElement.style.setProperty('--accent-2', rgbToHex(accent2));
+  document.documentElement.style.setProperty('--accent-2-rgb', toRgbString(accent2));
+  document.documentElement.style.setProperty('--accent-strong', rgbToHex(accentStrong));
+  document.documentElement.style.setProperty('--accent-soft', `rgba(${toRgbString(accent)}, 0.16)`);
+}
+
+function applyColorScheme(colorScheme) {
+  const normalizedScheme = normalizeColorScheme(colorScheme);
+  const themeColorMetaEl = document.querySelector('meta[name="theme-color"]');
+
+  if (normalizedScheme === 'custom') {
+    const customColor = normalizeCustomColor(state.settings.customColor);
+    state.settings.customColor = customColor;
     document.documentElement.dataset.theme = 'custom';
     applyCustomTheme(customColor);
     if (themeColorMetaEl) themeColorMetaEl.setAttribute('content', customColor);
     return normalizedScheme;
-  }
+}
 
   clearCustomThemeVariables();
   document.documentElement.dataset.theme = normalizedScheme;
@@ -147,7 +250,7 @@ function renderThemeSwatches() {
 }
 
 function populateStartingTtbOptions(selectEl) {
-  if (!selectEl || selectEl.childElementCount) return;
+  if (!selectEl || selectEl.options.length) return;
 
   for (let hours = 0; hours <= 30; hours += 1) {
     const option = document.createElement('option');
@@ -157,110 +260,33 @@ function populateStartingTtbOptions(selectEl) {
   }
 }
 
-function populateStartingTtbWheel(selectEl, values) {
-  if (!selectEl || selectEl.childElementCount) return;
+function populateStartingTtbFractionOptions(selectEl) {
+  if (!selectEl || selectEl.options.length) return;
 
-  values.forEach((value) => {
-    const option = document.createElement('button');
-    option.type = 'button';
-    option.className = 'wheel-item';
+  [
+    { value: 0, label: '.00' },
+    { value: 0.25, label: '.25' },
+    { value: 0.5, label: '.50' },
+    { value: 0.75, label: '.75' },
+  ].forEach((value) => {
+    const option = document.createElement('option');
     option.dataset.value = String(value.value);
     option.textContent = value.label;
     selectEl.appendChild(option);
   });
 }
 
-function getStartingTtbValueFromPicker() {
-  const hours = Number(startingTtbHoursWheelEl?.querySelector('.wheel-item.active')?.dataset.value || 0);
-  const fraction = Number(startingTtbFractionWheelEl?.querySelector('.wheel-item.active')?.dataset.value || 0);
+function getStartingTtbValueFromSelectors() {
+  const hoursEl = document.getElementById('startingTtbHours');
+  const fractionEl = document.getElementById('startingTtbFraction');
+  const hours = Number(hoursEl?.value || 0);
+  const fraction = Number(fractionEl?.value || 0);
   return Math.min(30, hours + fraction);
 }
 
-function renderStartingTtbPicker() {
-  const currentValue = Number(state.settings.startingTtb || 0);
-  const wholeHours = Math.max(0, Math.min(30, Math.floor(currentValue)));
-  const fraction = Number((currentValue - wholeHours).toFixed(2));
-
-  if (startingTtbHoursWheelEl && !startingTtbHoursWheelEl.childElementCount) {
-    populateStartingTtbOptions(startingTtbHoursWheelEl);
-    bindWheelPicker(startingTtbHoursWheelEl, syncStartingTtbFromWheels);
-  }
-
-  if (startingTtbFractionWheelEl && !startingTtbFractionWheelEl.childElementCount) {
-    populateStartingTtbWheel(startingTtbFractionWheelEl, [
-      { value: 0, label: '.00' },
-      { value: 0.25, label: '.25' },
-      { value: 0.5, label: '.50' },
-      { value: 0.75, label: '.75' },
-    ]);
-    bindWheelPicker(startingTtbFractionWheelEl, syncStartingTtbFromWheels);
-  }
-
-  selectWheelItem(startingTtbHoursWheelEl, wholeHours);
-  selectWheelItem(startingTtbFractionWheelEl, [0, 0.25, 0.5, 0.75].includes(fraction) ? fraction : 0);
-  if (startingTtbHiddenEl) startingTtbHiddenEl.value = String(currentValue);
-}
-
-function selectWheelItem(wheelEl, value) {
-  if (!wheelEl) return;
-  wheelEl.querySelectorAll('.wheel-item').forEach((item) => {
-    const isActive = item.dataset.value === String(value);
-    item.classList.toggle('active', isActive);
-    item.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    if (isActive) {
-      item.scrollIntoView({ block: 'center', inline: 'nearest' });
-    }
-  });
-}
-
-function syncStartingTtbFromWheels() {
-  const selectedValue = getStartingTtbValueFromPicker();
-  if (startingTtbHiddenEl) startingTtbHiddenEl.value = String(selectedValue);
-  state.settings.startingTtb = selectedValue;
+function syncStartingTtbFromSelectors() {
+  state.settings.startingTtb = getStartingTtbValueFromSelectors();
   saveState();
-}
-
-function bindWheelPicker(wheelEl, onChange) {
-  if (!wheelEl || wheelEl.dataset.bound === 'true') return;
-  wheelEl.dataset.bound = 'true';
-  let scrollTimer = null;
-
-  const resolveActiveItem = () => {
-    const items = Array.from(wheelEl.querySelectorAll('.wheel-item'));
-    if (!items.length) return;
-    const center = wheelEl.getBoundingClientRect().top + wheelEl.clientHeight / 2;
-    let closestItem = items[0];
-    let closestDistance = Infinity;
-
-    items.forEach((item) => {
-      const itemCenter = item.getBoundingClientRect().top + item.getBoundingClientRect().height / 2;
-      const distance = Math.abs(itemCenter - center);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestItem = item;
-      }
-    });
-
-    wheelEl.querySelectorAll('.wheel-item').forEach((item) => item.classList.remove('active'));
-    closestItem.classList.add('active');
-    closestItem.setAttribute('aria-pressed', 'true');
-    onChange?.();
-  };
-
-  wheelEl.addEventListener('scroll', () => {
-    window.clearTimeout(scrollTimer);
-    scrollTimer = window.setTimeout(resolveActiveItem, 80);
-  });
-
-  wheelEl.addEventListener('click', (event) => {
-    const item = event.target.closest('.wheel-item');
-    if (!item) return;
-    wheelEl.querySelectorAll('.wheel-item').forEach((entry) => entry.classList.remove('active'));
-    item.classList.add('active');
-    item.setAttribute('aria-pressed', 'true');
-    item.scrollIntoView({ block: 'center', inline: 'nearest' });
-    onChange?.();
-  });
 }
 
 function loadAuthDraft() {
@@ -1239,7 +1265,15 @@ function renderProfile() {
   if (managerEmailEl) managerEmailEl.value = state.profile.managerEmail || '';
   if (locationEl) locationEl.value = state.profile.location || '';
   document.getElementById('role').value = state.profile.role;
-  document.getElementById('startingTtb').value = String(state.settings.startingTtb || 0);
+  const startingTtbValue = Number(state.settings.startingTtb || 0);
+  const startingTtbHours = Math.max(0, Math.min(30, Math.floor(startingTtbValue)));
+  const startingTtbFraction = Number((startingTtbValue - startingTtbHours).toFixed(2));
+  const startingTtbHoursEl = document.getElementById('startingTtbHours');
+  const startingTtbFractionEl = document.getElementById('startingTtbFraction');
+  populateStartingTtbOptions(startingTtbHoursEl);
+  populateStartingTtbFractionOptions(startingTtbFractionEl);
+  if (startingTtbHoursEl) startingTtbHoursEl.value = String(startingTtbHours);
+  if (startingTtbFractionEl) startingTtbFractionEl.value = String([0, 0.25, 0.5, 0.75].includes(startingTtbFraction) ? startingTtbFraction : 0);
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
@@ -1258,6 +1292,7 @@ function render() {
   ensureTimesheetDays();
   renderDashboard();
   renderEntries();
+  const settingsForm = document.getElementById('settingsForm');
   renderTimesheet();
   renderProfile();
 }
@@ -1556,7 +1591,7 @@ authEmailEl?.addEventListener('input', saveAuthDraft);
 authPasswordEl?.addEventListener('input', saveAuthDraft);
 rememberSignInEl?.addEventListener('change', saveAuthDraft);
 
-settingsForm?.addEventListener('input', (event) => {
+const handleSettingsFormChange = (event) => {
   const { name, value } = event.target;
   if (name === 'colorScheme') {
     state.settings.colorScheme = normalizeColorScheme(value);
@@ -1565,9 +1600,13 @@ settingsForm?.addEventListener('input', (event) => {
     state.settings.customColor = normalizeCustomColor(value);
     state.settings.colorScheme = 'custom';
     state.settings.colorScheme = applyColorScheme('custom');
-  } else if (name === 'startingTtb' || name === 'startingDay') {
-    const parsed = parseQuarterHourValue(value);
-    state.settings[name] = parsed ?? 0;
+  } else if (name === 'startingTtbHours' || name === 'startingTtbFraction' || name === 'startingDay') {
+    if (name === 'startingTtbHours' || name === 'startingTtbFraction') {
+      state.settings.startingTtb = getStartingTtbValueFromSelectors();
+    } else {
+      const parsed = parseQuarterHourValue(value);
+      state.settings[name] = parsed ?? 0;
+    }
   } else if (name === 'defaultStartTime' || name === 'defaultFinishTime') {
     state.settings[name] = value;
   } else if (name === 'timeFormat') {
@@ -1594,7 +1633,10 @@ settingsForm?.addEventListener('input', (event) => {
   }
 
   render();
-});
+};
+
+settingsForm?.addEventListener('input', handleSettingsFormChange);
+settingsForm?.addEventListener('change', handleSettingsFormChange);
 
 themeSwatchesEl?.addEventListener('click', (event) => {
   const swatch = event.target.closest('.theme-swatch');

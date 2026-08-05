@@ -260,8 +260,15 @@ function populateStartingTtbOptions(selectEl) {
   }
 }
 
-function populateStartingTtbWheel(selectEl, values) {
-  values.forEach((value) => {
+function populateStartingTtbFractionOptions(selectEl) {
+  if (!selectEl || selectEl.options.length) return;
+
+  [
+    { value: 0, label: '.00' },
+    { value: 0.25, label: '.25' },
+    { value: 0.5, label: '.50' },
+    { value: 0.75, label: '.75' },
+  ].forEach((value) => {
     const option = document.createElement('option');
     option.value = String(value.value);
     option.textContent = value.label;
@@ -269,8 +276,17 @@ function populateStartingTtbWheel(selectEl, values) {
   });
 }
 
-function getStartingTtbValueFromPicker() {
-  return Number(state.settings.startingTtb || 0);
+function getStartingTtbValueFromSelectors() {
+  const hoursEl = document.getElementById('startingTtbHours');
+  const fractionEl = document.getElementById('startingTtbFraction');
+  const hours = Number(hoursEl?.value || 0);
+  const fraction = Number(fractionEl?.value || 0);
+  return Math.min(30, hours + fraction);
+}
+
+function syncStartingTtbFromSelectors() {
+  state.settings.startingTtb = getStartingTtbValueFromSelectors();
+  saveState();
 }
 
 function escapeHtml(value) {
@@ -1218,7 +1234,15 @@ function renderProfile() {
   if (managerEmailEl) managerEmailEl.value = state.profile.managerEmail || '';
   if (locationEl) locationEl.value = state.profile.location || '';
   document.getElementById('role').value = state.profile.role;
-  document.getElementById('startingTtb').value = String(state.settings.startingTtb || 0);
+  const startingTtbValue = Number(state.settings.startingTtb || 0);
+  const startingTtbHours = Math.max(0, Math.min(30, Math.floor(startingTtbValue)));
+  const startingTtbFraction = Number((startingTtbValue - startingTtbHours).toFixed(2));
+  const startingTtbHoursEl = document.getElementById('startingTtbHours');
+  const startingTtbFractionEl = document.getElementById('startingTtbFraction');
+  populateStartingTtbOptions(startingTtbHoursEl);
+  populateStartingTtbFractionOptions(startingTtbFractionEl);
+  if (startingTtbHoursEl) startingTtbHoursEl.value = String(startingTtbHours);
+  if (startingTtbFractionEl) startingTtbFractionEl.value = String([0, 0.25, 0.5, 0.75].includes(startingTtbFraction) ? startingTtbFraction : 0);
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
@@ -1534,8 +1558,7 @@ profileForm?.addEventListener('input', (event) => {
 authEmailEl?.addEventListener('input', saveAuthDraft);
 authPasswordEl?.addEventListener('input', saveAuthDraft);
 rememberSignInEl?.addEventListener('change', saveAuthDraft);
-
-settingsForm?.addEventListener('input', (event) => {
+const handleSettingsFormChange = (event) => {
   const { name, value } = event.target;
   if (name === 'colorScheme') {
     state.settings.colorScheme = normalizeColorScheme(value);
@@ -1544,9 +1567,13 @@ settingsForm?.addEventListener('input', (event) => {
     state.settings.customColor = normalizeCustomColor(value);
     state.settings.colorScheme = 'custom';
     state.settings.colorScheme = applyColorScheme('custom');
-  } else if (name === 'startingTtb' || name === 'startingDay') {
-    const parsed = parseQuarterHourValue(value);
-    state.settings[name] = parsed ?? 0;
+  } else if (name === 'startingTtbHours' || name === 'startingTtbFraction' || name === 'startingDay') {
+    if (name === 'startingTtbHours' || name === 'startingTtbFraction') {
+      state.settings.startingTtb = getStartingTtbValueFromSelectors();
+    } else {
+      const parsed = parseQuarterHourValue(value);
+      state.settings[name] = parsed ?? 0;
+    }
   } else if (name === 'defaultStartTime' || name === 'defaultFinishTime') {
     state.settings[name] = value;
   } else if (name === 'timeFormat') {
@@ -1573,7 +1600,10 @@ settingsForm?.addEventListener('input', (event) => {
   }
 
   render();
-});
+};
+
+settingsForm?.addEventListener('input', handleSettingsFormChange);
+settingsForm?.addEventListener('change', handleSettingsFormChange);
 
 themeSwatchesEl?.addEventListener('click', (event) => {
   const swatch = event.target.closest('.theme-swatch');
