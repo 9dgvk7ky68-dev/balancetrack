@@ -134,9 +134,10 @@
               <form id="settingsForm" class="settings-form">
                 <label>
                   Starting TTB balance
+                  <input id="startingTtb" name="startingTtb" type="hidden" value="0" />
                   <div class="starting-ttb-picker" aria-label="Starting TTB balance picker">
-                    <select id="startingTtbHours" name="startingTtbHours"></select>
-                    <select id="startingTtbFraction" name="startingTtbFraction"></select>
+                    <div id="startingTtbHoursWheel" class="wheel-column" aria-label="Whole hours"></div>
+                    <div id="startingTtbFractionWheel" class="wheel-column wheel-column--fraction" aria-label="Quarter hours"></div>
                   </div>
                   <span class="field-hint">Use the picker to choose quarter-hour steps up to 30 hours.</span>
                 </label>
@@ -220,6 +221,10 @@
                   <button id="authSignInBtn" class="btn btn-ghost" type="button">Sign in</button>
                   <button id="authSignOutBtn" class="btn btn-ghost" type="button">Sign out</button>
                 </div>
+                <label class="auth-remember">
+                  <input id="rememberSignIn" type="checkbox" />
+                  <span>Remain signed in on this device and remember my sign-in details</span>
+                </label>
                 <span id="authStatus" class="auth-status">Use the same email on phone and laptop to sync data.</span>
               </form>
             </div>

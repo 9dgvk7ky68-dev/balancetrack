@@ -72,10 +72,15 @@ const choiceDialogEl = document.getElementById('choiceDialog');
 const choiceDialogTitleEl = document.getElementById('choiceDialogTitle');
 const choiceDialogMessageEl = document.getElementById('choiceDialogMessage');
 const choiceDialogActionsEl = document.getElementById('choiceDialogActions');
+const rememberSignInEl = document.getElementById('rememberSignIn');
+const startingTtbHiddenEl = document.getElementById('startingTtb');
+const startingTtbHoursWheelEl = document.getElementById('startingTtbHoursWheel');
+const startingTtbFractionWheelEl = document.getElementById('startingTtbFractionWheel');
 
 const SUPPORT_EMAIL = 'david.andrews@seatingtogo.co.nz';
 const BUG_REPORT_ENDPOINT = `https://formsubmit.co/ajax/${encodeURIComponent(SUPPORT_EMAIL)}`;
 const BUG_REPORT_DRAFT_KEY = 'balancetrack-bug-report-v1';
+const AUTH_DRAFT_KEY = 'balancetrack-auth-v1';
 
 const COLOR_SCHEMES = {
   fern: { themeColor: '#5f8f68' },
@@ -248,7 +253,7 @@ function renderThemeSwatches() {
 }
 
 function populateStartingTtbOptions(selectEl) {
-  if (!selectEl || selectEl.options.length) return;
+  if (!selectEl || selectEl.childElementCount) return;
 
   for (let hours = 0; hours <= 30; hours += 1) {
     const option = document.createElement('option');
@@ -259,7 +264,7 @@ function populateStartingTtbOptions(selectEl) {
 }
 
 function populateStartingTtbWheel(selectEl, values) {
-  if (!selectEl || selectEl.options.length) return;
+  if (!selectEl || selectEl.childElementCount) return;
 
   values.forEach((value) => {
     const option = document.createElement('option');
@@ -270,11 +275,97 @@ function populateStartingTtbWheel(selectEl, values) {
 }
 
 function getStartingTtbValueFromPicker() {
-  const hoursEl = document.getElementById('startingTtbHours');
-  const fractionEl = document.getElementById('startingTtbFraction');
-  const hours = Number(hoursEl?.value || 0);
-  const fraction = Number(fractionEl?.value || 0);
+  const hours = Number(startingTtbHoursWheelEl?.querySelector('.wheel-item.active')?.dataset.value || 0);
+  const fraction = Number(startingTtbFractionWheelEl?.querySelector('.wheel-item.active')?.dataset.value || 0);
   return Math.min(30, hours + fraction);
+}
+
+function selectWheelItem(wheelEl, value) {
+  if (!wheelEl) return;
+  wheelEl.querySelectorAll('.wheel-item').forEach((item) => {
+    const isActive = item.dataset.value === String(value);
+    item.classList.toggle('active', isActive);
+    item.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    if (isActive) {
+      item.scrollIntoView({ block: 'center', inline: 'nearest' });
+    }
+  });
+}
+
+function syncStartingTtbFromWheels() {
+  const selectedValue = getStartingTtbValueFromPicker();
+  if (startingTtbHiddenEl) startingTtbHiddenEl.value = String(selectedValue);
+  state.settings.startingTtb = selectedValue;
+  saveState();
+}
+
+function bindWheelPicker(wheelEl, onChange) {
+  if (!wheelEl || wheelEl.dataset.bound === 'true') return;
+  wheelEl.dataset.bound = 'true';
+  let scrollTimer = null;
+
+  const resolveActiveItem = () => {
+    const items = Array.from(wheelEl.querySelectorAll('.wheel-item'));
+    if (!items.length) return;
+    const center = wheelEl.getBoundingClientRect().top + wheelEl.clientHeight / 2;
+    let closestItem = items[0];
+    let closestDistance = Infinity;
+
+    items.forEach((item) => {
+      const rect = item.getBoundingClientRect();
+      const itemCenter = rect.top + rect.height / 2;
+      const distance = Math.abs(itemCenter - center);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestItem = item;
+      }
+    });
+
+    wheelEl.querySelectorAll('.wheel-item').forEach((item) => item.classList.remove('active'));
+    closestItem.classList.add('active');
+    closestItem.setAttribute('aria-pressed', 'true');
+    onChange?.();
+  };
+
+  wheelEl.addEventListener('scroll', () => {
+    window.clearTimeout(scrollTimer);
+    scrollTimer = window.setTimeout(resolveActiveItem, 80);
+  });
+
+  wheelEl.addEventListener('click', (event) => {
+    const item = event.target.closest('.wheel-item');
+    if (!item) return;
+    wheelEl.querySelectorAll('.wheel-item').forEach((entry) => entry.classList.remove('active'));
+    item.classList.add('active');
+    item.setAttribute('aria-pressed', 'true');
+    item.scrollIntoView({ block: 'center', inline: 'nearest' });
+    onChange?.();
+  });
+}
+
+function renderStartingTtbPicker() {
+  const currentValue = Number(state.settings.startingTtb || 0);
+  const wholeHours = Math.max(0, Math.min(30, Math.floor(currentValue)));
+  const fraction = Number((currentValue - wholeHours).toFixed(2));
+
+  if (startingTtbHoursWheelEl && !startingTtbHoursWheelEl.childElementCount) {
+    populateStartingTtbOptions(startingTtbHoursWheelEl);
+    bindWheelPicker(startingTtbHoursWheelEl, syncStartingTtbFromWheels);
+  }
+
+  if (startingTtbFractionWheelEl && !startingTtbFractionWheelEl.childElementCount) {
+    populateStartingTtbWheel(startingTtbFractionWheelEl, [
+      { value: 0, label: '.00' },
+      { value: 0.25, label: '.25' },
+      { value: 0.5, label: '.50' },
+      { value: 0.75, label: '.75' },
+    ]);
+    bindWheelPicker(startingTtbFractionWheelEl, syncStartingTtbFromWheels);
+  }
+
+  selectWheelItem(startingTtbHoursWheelEl, wholeHours);
+  selectWheelItem(startingTtbFractionWheelEl, [0, 0.25, 0.5, 0.75].includes(fraction) ? fraction : 0);
+  if (startingTtbHiddenEl) startingTtbHiddenEl.value = String(currentValue);
 }
 
 function escapeHtml(value) {
@@ -536,6 +627,36 @@ function loadBugReportDraft() {
   } catch (_error) {
     // Ignore malformed draft content
   }
+}
+
+function loadAuthDraft() {
+  try {
+    const raw = localStorage.getItem(AUTH_DRAFT_KEY);
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (authEmailEl && typeof draft.email === 'string') authEmailEl.value = draft.email;
+    if (authPasswordEl && typeof draft.password === 'string') authPasswordEl.value = draft.password;
+    if (rememberSignInEl) rememberSignInEl.checked = Boolean(draft.remember);
+  } catch (error) {
+    console.warn('Could not load saved sign-in details', error);
+  }
+}
+
+function saveAuthDraft() {
+  if (!rememberSignInEl?.checked) {
+    localStorage.removeItem(AUTH_DRAFT_KEY);
+    return;
+  }
+
+  localStorage.setItem(AUTH_DRAFT_KEY, JSON.stringify({
+    email: String(authEmailEl?.value || '').trim(),
+    password: String(authPasswordEl?.value || ''),
+    remember: true,
+  }));
+}
+
+function clearAuthDraft() {
+  localStorage.removeItem(AUTH_DRAFT_KEY);
 }
 
 async function sendBugReport(details) {
@@ -1192,20 +1313,7 @@ function renderProfile() {
   if (managerEmailEl) managerEmailEl.value = state.profile.managerEmail || '';
   if (locationEl) locationEl.value = state.profile.location || '';
   document.getElementById('role').value = state.profile.role;
-  const startingTtbHoursEl = document.getElementById('startingTtbHours');
-  const startingTtbFractionEl = document.getElementById('startingTtbFraction');
-  populateStartingTtbOptions(startingTtbHoursEl);
-  populateStartingTtbWheel(startingTtbFractionEl, [
-    { value: 0, label: '.00' },
-    { value: 0.25, label: '.25' },
-    { value: 0.5, label: '.50' },
-    { value: 0.75, label: '.75' },
-  ]);
-  const normalizedStartingTtb = Number(state.settings.startingTtb || 0);
-  const wholeHours = Math.max(0, Math.min(30, Math.floor(normalizedStartingTtb)));
-  const fraction = Number((normalizedStartingTtb - wholeHours).toFixed(2));
-  if (startingTtbHoursEl) startingTtbHoursEl.value = String(wholeHours);
-  if (startingTtbFractionEl) startingTtbFractionEl.value = String([0, 0.25, 0.5, 0.75].includes(fraction) ? fraction : 0);
+  renderStartingTtbPicker();
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
@@ -1488,6 +1596,7 @@ authSignInBtn?.addEventListener('click', () => {
     }
 
     currentUserId = data.user?.id || null;
+    saveAuthDraft();
     await pullStateFromCloud();
   })();
 });
@@ -1500,6 +1609,9 @@ authSignOutBtn?.addEventListener('click', () => {
     currentUserId = null;
     if (authEmailEl) authEmailEl.value = '';
     if (authPasswordEl) authPasswordEl.value = '';
+    if (!rememberSignInEl?.checked) {
+      clearAuthDraft();
+    }
     setAuthStatus('Signed out. CSV export remains available as backup.');
   })();
 });
@@ -1513,6 +1625,10 @@ profileForm?.addEventListener('input', (event) => {
   state.profile[name] = value;
   saveState();
 });
+
+authEmailEl?.addEventListener('input', saveAuthDraft);
+authPasswordEl?.addEventListener('input', saveAuthDraft);
+rememberSignInEl?.addEventListener('change', saveAuthDraft);
 
 settingsForm?.addEventListener('input', (event) => {
   const { name, value } = event.target;
@@ -1608,6 +1724,7 @@ if ('serviceWorker' in navigator) {
 render();
 switchTab('dashboard');
 loadBugReportDraft();
+loadAuthDraft();
 updateBugReportCount();
 
 connectSupabase().catch((error) => {
