@@ -96,7 +96,7 @@ select {
 .app-shell {
   max-width: 440px;
   margin: 0 auto;
-  padding: 16px 12px 28px;
+  padding: 16px 12px calc(102px + env(safe-area-inset-bottom, 0px));
 }
 
 .phone-shell {
@@ -208,13 +208,16 @@ h1 {
 }
 
 .tab-nav {
-  position: sticky;
-  bottom: 10px;
-  z-index: 20;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  z-index: 999;
   display: flex;
   justify-content: center;
   gap: 12px;
-  margin-top: 14px;
+  width: min(420px, calc(100vw - 16px));
+  margin: 0;
   padding: 10px 10px 8px;
   border-top: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.95);
@@ -246,10 +249,6 @@ h1 {
 .tab-icon {
   width: 20px;
   height: 20px;
-}
-
-.tab-label {
-  display: none;
 }
 
 .view {
@@ -637,7 +636,7 @@ textarea {
 
 @media (max-width: 720px) {
   .app-shell {
-    padding: 10px 8px calc(98px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 8px calc(102px + env(safe-area-inset-bottom, 0px));
   }
 
   .phone-shell {
@@ -655,36 +654,18 @@ textarea {
   }
 
   .tab-nav {
-    position: fixed !important;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    width: min(420px, calc(100vw - 16px));
-    margin: 0;
     gap: 10px;
-    z-index: 999;
   }
 
   .tab-btn {
-    width: 94px;
-    height: 58px;
-    border-radius: 16px;
-    align-content: center;
-    gap: 2px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
   }
 
   .tab-icon {
-    width: 18px;
-    height: 18px;
-    stroke-width: 2.1;
-  }
-
-  .tab-label {
-    display: block;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    line-height: 1;
+    width: 20px;
+    height: 20px;
   }
 
   .timesheet-row {
