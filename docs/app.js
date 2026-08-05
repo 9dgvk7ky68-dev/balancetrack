@@ -582,6 +582,7 @@ async function showPromptDialog(message, defaultValue = '', config = {}) {
         defaultDate: String(defaultValue || ''),
         disableMobile: true,
         allowInput: false,
+        clickOpens: true,
         appendTo: choiceDialogMessageEl,
         static: true,
       });
