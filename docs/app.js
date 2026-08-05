@@ -50,6 +50,8 @@ const authSignUpBtn = document.getElementById('authSignUpBtn');
 const authSignInBtn = document.getElementById('authSignInBtn');
 const authSignOutBtn = document.getElementById('authSignOutBtn');
 const authStatusEl = document.getElementById('authStatus');
+const resetAllDataBtn = document.getElementById('resetAllDataBtn');
+const resetAllDataHintEl = document.getElementById('resetAllDataHint');
 const addTtbBtn = document.getElementById('addTtbBtn');
 const useTtbBtn = document.getElementById('useTtbBtn');
 const addDayBtn = document.getElementById('addDayBtn');
@@ -664,10 +666,29 @@ function applyRemoteState(appState) {
     : {};
 }
 
+function resetStateToDefaults() {
+  const freshState = structuredClone(defaultState);
+  const freshFortnightStart = getMondayOfCurrentWeek();
+  freshState.currentFortnightKey = getFortnightKey(freshFortnightStart);
+  freshState.timesheetDays = buildFortnightDays(freshFortnightStart);
+  freshState.fortnightData = {
+    [freshState.currentFortnightKey]: freshState.timesheetDays.map((day) => ({ ...day })),
+  };
+
+  state.entries = freshState.entries;
+  state.profile = freshState.profile;
+  state.settings = freshState.settings;
+  state.timesheetDays = freshState.timesheetDays;
+  state.currentFortnightKey = freshState.currentFortnightKey;
+  state.fortnightData = freshState.fortnightData;
+}
+
 function updateAuthUI(user) {
   if (authSignUpBtn) authSignUpBtn.hidden = Boolean(user);
   if (authSignInBtn) authSignInBtn.hidden = Boolean(user);
   if (authSignOutBtn) authSignOutBtn.hidden = !user;
+  if (resetAllDataBtn) resetAllDataBtn.hidden = !user;
+  if (resetAllDataHintEl) resetAllDataHintEl.hidden = !user;
 }
 
 async function connectSupabase() {
@@ -1574,6 +1595,53 @@ authSignOutBtn?.addEventListener('click', () => {
       clearAuthDraft();
     }
     setAuthStatus('Signed out. CSV export remains available as backup.');
+  })();
+});
+
+resetAllDataBtn?.addEventListener('click', () => {
+  (async () => {
+    if (!currentUserId) {
+      setAuthStatus('Sign in first to reset all data.', true);
+      return;
+    }
+
+    const confirmed = window.confirm('This will erase all BalanceTrack data and start from scratch on all signed-in devices. Continue?');
+    if (!confirmed) return;
+
+    const password = window.prompt('Enter your account password to confirm full reset.');
+    if (password === null) return;
+    if (password.length < 8) {
+      setAuthStatus('Password must be at least 8 characters.', true);
+      return;
+    }
+
+    const client = await connectSupabase();
+    if (!client) return;
+
+    const { data: userData, error: userError } = await client.auth.getUser();
+    if (userError) {
+      setAuthStatus(`Could not verify current account: ${userError.message}`, true);
+      return;
+    }
+
+    const email = String(userData?.user?.email || authEmailEl?.value || '').trim();
+    if (!email) {
+      setAuthStatus('Could not determine signed-in email for confirmation.', true);
+      return;
+    }
+
+    const { error: verifyError } = await client.auth.signInWithPassword({ email, password });
+    if (verifyError) {
+      setAuthStatus(`Reset cancelled: ${verifyError.message}`, true);
+      return;
+    }
+
+    resetStateToDefaults();
+    localStorage.removeItem(BUG_REPORT_DRAFT_KEY);
+    saveState();
+    render();
+    await pushStateToCloud();
+    setAuthStatus('All data was reset. You are now starting from a clean slate.');
   })();
 });
 
