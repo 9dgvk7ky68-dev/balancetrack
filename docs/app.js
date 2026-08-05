@@ -7,8 +7,9 @@ const defaultState = {
   profile: {
     staffName: '',
     managerName: '',
+    managerEmail: '',
+    location: '',
     role: '',
-    department: '',
   },
   settings: {
     startingTtb: 0,
@@ -55,6 +56,8 @@ const addDayBtn = document.getElementById('addDayBtn');
 const useDayBtn = document.getElementById('useDayBtn');
 const profileForm = document.getElementById('profileForm');
 const settingsForm = document.getElementById('settingsForm');
+const managerEmailEl = document.getElementById('managerEmail');
+const locationEl = document.getElementById('location');
 const colorSchemeEl = document.getElementById('colorScheme');
 const customColorInputEl = document.getElementById('customColor');
 const themeSwatchesEl = document.getElementById('themeSwatches');
@@ -65,6 +68,10 @@ const bugReportCountEl = document.getElementById('bugReportCount');
 const copyBugReportBtn = document.getElementById('copyBugReportBtn');
 const sendBugReportBtn = document.getElementById('sendBugReportBtn');
 const bugReportStatusEl = document.getElementById('bugReportStatus');
+const choiceDialogEl = document.getElementById('choiceDialog');
+const choiceDialogTitleEl = document.getElementById('choiceDialogTitle');
+const choiceDialogMessageEl = document.getElementById('choiceDialogMessage');
+const choiceDialogActionsEl = document.getElementById('choiceDialogActions');
 
 const SUPPORT_EMAIL = 'david.andrews@seatingtogo.co.nz';
 const BUG_REPORT_ENDPOINT = `https://formsubmit.co/ajax/${encodeURIComponent(SUPPORT_EMAIL)}`;
@@ -107,7 +114,11 @@ function loadState() {
     const parsed = JSON.parse(raw);
     return {
       entries: Array.isArray(parsed.entries) ? parsed.entries : [],
-      profile: { ...defaultState.profile, ...(parsed.profile || {}) },
+      profile: {
+        ...defaultState.profile,
+        ...(parsed.profile || {}),
+        location: (parsed.profile && (parsed.profile.location || parsed.profile.department)) || '',
+      },
       settings: { ...defaultState.settings, ...(parsed.settings || {}) },
       timesheetDays: Array.isArray(parsed.timesheetDays) ? parsed.timesheetDays : [],
       currentFortnightKey: typeof parsed.currentFortnightKey === 'string' ? parsed.currentFortnightKey : '',
@@ -234,6 +245,192 @@ function renderThemeSwatches() {
   if (customSwatch) {
     customSwatch.style.background = `linear-gradient(135deg, ${customColor}, #ffffff)`;
   }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getProfileDetails() {
+  return {
+    staffName: String(state.profile.staffName || '').trim(),
+    managerName: String(state.profile.managerName || '').trim(),
+    managerEmail: String(state.profile.managerEmail || '').trim(),
+    location: String(state.profile.location || '').trim(),
+  };
+}
+
+function rowsToPlainText(rows) {
+  return rows.map((row) => row.map((cell) => String(cell ?? '')).join(' | ')).join('\n');
+}
+
+function rowsToCsv(rows) {
+  return rows.map((row) => row.map(csvEscape).join(',')).join('\n');
+}
+
+function buildSheetRows() {
+  const profile = getProfileDetails();
+  const earnedTtbEntries = state.entries
+    .filter((entry) => entry.type === 'ttb' && entry.action === 'earned')
+    .slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+  if (!earnedTtbEntries.length) {
+    throw new Error('No earned TTB entries available to export yet.');
+  }
+
+  const rows = [
+    ['BalanceTrack Export', '', ''],
+    ['Staff name', profile.staffName || 'Not provided', ''],
+    ['Manager name', profile.managerName || 'Not provided', ''],
+    ['Manager email', profile.managerEmail || 'Not provided', ''],
+    ['Location', profile.location || 'Not provided', ''],
+    ['', '', ''],
+    ['Date', 'TTB added (hours)', 'Reason'],
+  ];
+
+  let totalHours = 0;
+  earnedTtbEntries.forEach((entry) => {
+    const hours = Number(entry.amount || 0);
+    totalHours += hours;
+    rows.push([
+      formatDate(entry.date),
+      formatHoursValue(hours),
+      entry.note || 'No reason entered',
+    ]);
+  });
+
+  rows.push(['', '', '']);
+  rows.push(['TOTAL', formatHoursValue(totalHours), '']);
+  return rows;
+}
+
+function buildSheetPreviewHtml(title, rows) {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #182026; }
+    h1 { margin: 0 0 12px; font-size: 22px; }
+    p { margin: 0 0 18px; color: #55606a; }
+    table { width: 100%; border-collapse: collapse; }
+    td { border: 1px solid #d6ddd8; padding: 8px 10px; vertical-align: top; }
+    tr:nth-child(odd) td { background: #f8fbf7; }
+    .meta td:first-child { font-weight: 700; width: 180px; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(title)}</h1>
+  <p>Open this sheet in the browser, or use the app buttons to download or email it.</p>
+  <table>
+    ${rows.map((row, index) => `<tr class="${index < 5 ? 'meta' : ''}">${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
+  </table>
+</body>
+</html>`;
+}
+
+function openSheetInBrowser(title, rows) {
+  const previewHtml = buildSheetPreviewHtml(title, rows);
+  const blob = new Blob([previewHtml], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const previewWindow = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!previewWindow) {
+    URL.revokeObjectURL(url);
+    window.alert('Please allow popups to open the export sheet in a browser tab.');
+    return;
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function downloadSheet(format, rows) {
+  const exportDate = formatLocalDate(new Date());
+  if (format === 'csv') {
+    downloadCsvFile(`ttb-export-${exportDate}.csv`, rows);
+    return;
+  }
+
+  if (format === 'excel') {
+    downloadTextFile(`ttb-export-${exportDate}.xls`, buildSheetPreviewHtml('TTB Export', rows), 'application/vnd.ms-excel');
+    return;
+  }
+
+  if (format === 'word') {
+    downloadTextFile(`ttb-export-${exportDate}.doc`, buildSheetPreviewHtml('TTB Export', rows), 'application/msword');
+    return;
+  }
+
+  if (format === 'pdf') {
+    openSheetInBrowser('TTB Export', rows);
+    return;
+  }
+
+  throw new Error('Unsupported export format.');
+}
+
+function emailSheet(format, rows) {
+  const profile = getProfileDetails();
+  if (!profile.managerEmail) {
+    window.alert('Enter the manager email in Settings first.');
+    return;
+  }
+
+  const subject = `BalanceTrack export - ${format.toUpperCase()}`;
+  const body = rowsToPlainText(rows);
+  const mailto = `mailto:${encodeURIComponent(profile.managerEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+}
+
+async function showChoiceDialog(title, message, options) {
+  if (!choiceDialogEl || !choiceDialogTitleEl || !choiceDialogMessageEl || !choiceDialogActionsEl) {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    const finish = (value) => {
+      if (choiceDialogEl.open) {
+        choiceDialogEl.close();
+      }
+      choiceDialogActionsEl.innerHTML = '';
+      choiceDialogEl.removeEventListener('cancel', cancelHandler);
+      resolve(value);
+    };
+
+    const cancelHandler = (event) => {
+      event.preventDefault();
+      finish(null);
+    };
+
+    choiceDialogTitleEl.textContent = title;
+    choiceDialogMessageEl.textContent = message || '';
+    choiceDialogActionsEl.innerHTML = '';
+
+    options.forEach((option) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `btn ${option.variant || 'btn-secondary'}`;
+      button.textContent = option.label;
+      button.addEventListener('click', () => finish(option.value));
+      choiceDialogActionsEl.appendChild(button);
+    });
+
+    const cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.className = 'btn btn-ghost';
+    cancelButton.textContent = 'Cancel';
+    cancelButton.addEventListener('click', () => finish(null));
+    choiceDialogActionsEl.appendChild(cancelButton);
+
+    choiceDialogEl.addEventListener('cancel', cancelHandler);
+    choiceDialogEl.showModal();
+  });
 }
 
 function buildBugReportMessage(details) {
@@ -824,62 +1021,24 @@ function downloadTextFile(fileName, content, mimeType) {
 }
 
 function buildTtbExportRows() {
-  const earnedTtbEntries = state.entries
-    .filter((entry) => entry.type === 'ttb' && entry.action === 'earned')
-    .slice()
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-
-  if (!earnedTtbEntries.length) {
-    throw new Error('No earned TTB entries available to export yet.');
-  }
-
-  const rows = [['Date', 'TTB added (hours)', 'Reason']];
-  let totalHours = 0;
-
-  earnedTtbEntries.forEach((entry) => {
-    const hours = Number(entry.amount || 0);
-    totalHours += hours;
-    rows.push([
-      formatDate(entry.date),
-      formatHoursValue(hours),
-      entry.note || 'No reason entered',
-    ]);
-  });
-
-  rows.push(['', '', '']);
-  rows.push(['TOTAL', formatHoursValue(totalHours), '']);
-  return rows;
+  return buildSheetRows();
 }
 
 function exportTtbReport(format = 'csv') {
-  const rows = buildTtbExportRows();
+  const rows = buildSheetRows();
   const exportDate = formatLocalDate(new Date());
 
-  if (format === 'excel') {
-    const htmlTable = `<!DOCTYPE html><html><body><table>${rows.map((row) => `<tr>${row.map((cell) => `<td>${String(cell).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>`).join('')}</tr>`).join('')}</table></body></html>`;
-    downloadTextFile(`ttb-export-${exportDate}.xls`, htmlTable, 'application/vnd.ms-excel');
+  if (format === 'browser') {
+    openSheetInBrowser('TTB Export', rows);
     return;
   }
 
-  if (format === 'word') {
-    const document = `<!DOCTYPE html><html><body><h1>TTB Export</h1><table>${rows.map((row) => `<tr>${row.map((cell) => `<td>${String(cell).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>`).join('')}</tr>`).join('')}</table></body></html>`;
-    downloadTextFile(`ttb-export-${exportDate}.doc`, document, 'application/msword');
+  if (format === 'email') {
+    emailSheet('csv', rows);
     return;
   }
 
-  if (format === 'pdf') {
-    const printHtml = `<!DOCTYPE html><html><body><h1>TTB Export</h1><table>${rows.map((row) => `<tr>${row.map((cell) => `<td>${String(cell).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>`).join('')}</tr>`).join('')}</table><script>window.onload = () => window.print();</script></body></html>`;
-    const popup = window.open('', '_blank', 'width=800,height=900');
-    if (!popup) {
-      window.alert('Please allow popups to export as PDF.');
-      return;
-    }
-    popup.document.write(printHtml);
-    popup.document.close();
-    return;
-  }
-
-  downloadCsvFile(`ttb-export-${exportDate}.csv`, rows);
+  downloadSheet(format, rows);
 }
 
 function setAuthStatus(message, isError = false) {
@@ -984,11 +1143,11 @@ function renderTimesheet() {
           </div>
           <label class="time-input">
             <span>Start</span>
-            <input type="text" data-field="start" value="${formatTimeForDisplay(day.start)}" ${day.isWeekend ? 'disabled' : ''} placeholder="${state.settings.timeFormat === '12h' ? '8:00 AM' : '08:00'}" inputmode="numeric" />
+            <input type="time" data-field="start" value="${day.start || ''}" ${day.isWeekend ? 'disabled' : ''} step="900" />
           </label>
           <label class="time-input">
             <span>Finish</span>
-            <input type="text" data-field="finish" value="${formatTimeForDisplay(day.finish)}" ${day.isWeekend ? 'disabled' : ''} placeholder="${state.settings.timeFormat === '12h' ? '4:30 PM' : '16:30'}" inputmode="numeric" />
+            <input type="time" data-field="finish" value="${day.finish || ''}" ${day.isWeekend ? 'disabled' : ''} step="900" />
           </label>
           <div class="hours-pill">${formatQuarterHoursValue(daySummary.workedHours)}h</div>
           <div class="ot-pill">${formatQuarterHoursValue(daySummary.overtime)}h OT</div>
@@ -1001,8 +1160,9 @@ function renderTimesheet() {
 function renderProfile() {
   document.getElementById('staffName').value = state.profile.staffName;
   document.getElementById('managerName').value = state.profile.managerName;
+  if (managerEmailEl) managerEmailEl.value = state.profile.managerEmail || '';
+  if (locationEl) locationEl.value = state.profile.location || '';
   document.getElementById('role').value = state.profile.role;
-  document.getElementById('department').value = state.profile.department;
   document.getElementById('startingTtb').value = state.settings.startingTtb.toFixed(2).replace(/\.00$/, '');
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
@@ -1035,7 +1195,7 @@ function switchTab(tabName) {
   });
 }
 
-function addTtbQuickEntry(action) {
+async function addTtbQuickEntry(action) {
   const rawValue = window.prompt('Enter TTB amount in quarter-hour steps (0.25, 0.5, 0.75, 1, etc.)', '0.25');
   if (rawValue === null) return;
   const parsedValue = parseQuarterHourValue(rawValue);
@@ -1046,24 +1206,17 @@ function addTtbQuickEntry(action) {
 
   let note = action === 'earned' ? 'Quick TTB add' : 'Quick TTB use';
   if (action === 'earned') {
-    const reasonPrompt = window.prompt(
-      'Select reason for adding TTB:\n1. No lunch taken\n2. Additional travel due to traffic/accident\n3. Extra time worked',
-      '1'
+    const selectedReason = await showChoiceDialog(
+      'Why is TTB being added?',
+      'Choose the matching reason below.',
+      [
+        { label: 'No lunch taken', value: 'No lunch taken' },
+        { label: 'Additional travel due to traffic/accident', value: 'Additional travel due to traffic/accident' },
+        { label: 'Extra time worked', value: 'Extra time worked' },
+      ]
     );
 
-    if (reasonPrompt === null) return;
-
-    const reasonMap = {
-      1: 'No lunch taken',
-      2: 'Additional travel due to traffic/accident',
-      3: 'Extra time worked',
-    };
-
-    const selectedReason = reasonMap[Number(String(reasonPrompt).trim())];
-    if (!selectedReason) {
-      window.alert('Please choose 1, 2, or 3 for the TTB reason.');
-      return;
-    }
+    if (!selectedReason) return;
 
     if (selectedReason === 'Extra time worked') {
       const defaultDate = formatLocalDate(new Date());
@@ -1143,27 +1296,43 @@ resetSelectedFortnightBtn?.addEventListener('click', () => {
   render();
 });
 
-exportTtbBtn?.addEventListener('click', () => {
-  const selectedFormat = window.prompt(
-    'Choose export format:\n1. Excel\n2. Word\n3. PDF\n4. CSV',
-    '1'
+exportTtbBtn?.addEventListener('click', async () => {
+  const action = await showChoiceDialog(
+    'Export TTB sheet',
+    'Choose how you want to share the export.',
+    [
+      { label: 'Open in browser', value: 'browser' },
+      { label: 'Download file', value: 'download' },
+      { label: 'Email manager', value: 'email' },
+    ]
   );
-  if (selectedFormat === null) return;
-
-  const formatMap = {
-    1: 'excel',
-    2: 'word',
-    3: 'pdf',
-    4: 'csv',
-  };
-  const resolvedFormat = formatMap[Number(String(selectedFormat).trim())];
-  if (!resolvedFormat) {
-    window.alert('Please choose 1, 2, 3, or 4.');
-    return;
-  }
+  if (!action) return;
 
   try {
-    exportTtbReport(resolvedFormat);
+    const rows = buildSheetRows();
+    if (action === 'browser') {
+      openSheetInBrowser('TTB Export', rows);
+      return;
+    }
+
+    if (action === 'email') {
+      emailSheet('csv', rows);
+      return;
+    }
+
+    const format = await showChoiceDialog(
+      'Download format',
+      'Pick the file format for the export.',
+      [
+        { label: 'Excel', value: 'excel' },
+        { label: 'Word', value: 'word' },
+        { label: 'PDF', value: 'pdf' },
+        { label: 'CSV', value: 'csv' },
+      ]
+    );
+    if (!format) return;
+
+    downloadSheet(format, rows);
   } catch (error) {
     window.alert(error.message || 'Could not export TTB data.');
   }
@@ -1384,19 +1553,4 @@ timesheetDaysEl?.addEventListener('change', (event) => {
   }
 
   renderDashboard();
-});
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(console.error);
-  });
-}
-
-render();
-switchTab('dashboard');
-loadBugReportDraft();
-updateBugReportCount();
-
-connectSupabase().catch((error) => {
-  setAuthStatus(`Connect failed: ${error.message}`, true);
 });

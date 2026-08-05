@@ -110,12 +110,16 @@
                   <input id="managerName" name="managerName" type="text" placeholder="Manager name" />
                 </label>
                 <label>
-                  Role
-                  <input id="role" name="role" type="text" placeholder="Role" />
+                  Manager email
+                  <input id="managerEmail" name="managerEmail" type="email" autocomplete="email" placeholder="manager@example.com" />
                 </label>
                 <label>
-                  Department
-                  <input id="department" name="department" type="text" placeholder="Department" />
+                  Location
+                  <input id="location" name="location" type="text" placeholder="Location" />
+                </label>
+                <label>
+                  Role
+                  <input id="role" name="role" type="text" placeholder="Role" />
                 </label>
               </form>
             </div>
@@ -300,6 +304,19 @@
         </nav>
       </div>
     </div>
+
+    <dialog id="choiceDialog" class="choice-dialog">
+      <div class="choice-dialog-panel">
+        <div class="section-head choice-dialog-head">
+          <div>
+            <p class="eyebrow">Choose</p>
+            <h2 id="choiceDialogTitle">Select an option</h2>
+          </div>
+        </div>
+        <p id="choiceDialogMessage" class="choice-dialog-message"></p>
+        <div id="choiceDialogActions" class="choice-dialog-actions"></div>
+      </div>
+    </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./app.js"></script>
