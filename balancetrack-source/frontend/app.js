@@ -1162,7 +1162,11 @@ function renderProfile() {
   if (managerEmailEl) managerEmailEl.value = state.profile.managerEmail || '';
   if (locationEl) locationEl.value = state.profile.location || '';
   document.getElementById('role').value = state.profile.role;
-  document.getElementById('startingTtb').value = state.settings.startingTtb.toFixed(2).replace(/\.00$/, '');
+  document.getElementById('startingTtb').value = String(state.settings.startingTtb ?? 0);
+  const startingTtbValueEl = document.getElementById('startingTtbValue');
+  if (startingTtbValueEl) {
+    startingTtbValueEl.textContent = `${formatHoursValue(state.settings.startingTtb)}h`;
+  }
   document.getElementById('startingDay').value = state.settings.startingDay;
   document.getElementById('defaultStartTime').value = state.settings.defaultStartTime || '08:00';
   document.getElementById('defaultFinishTime').value = state.settings.defaultFinishTime || '16:30';
