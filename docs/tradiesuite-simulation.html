@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TradieSuite Simulation</title>
+    <style>
+      :root {
+        --bg: #f3f1ea;
+        --panel: #fffdf8;
+        --ink: #13202a;
+        --muted: #5f6f79;
+        --line: #dfd8c8;
+        --brand: #b85e2f;
+        --brand-2: #205a73;
+        --ok: #237c55;
+        --warn: #9f4f23;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 10% 10%, rgba(184, 94, 47, 0.12), transparent 30%),
+          radial-gradient(circle at 90% 0%, rgba(32, 90, 115, 0.14), transparent 32%),
+          var(--bg);
+      }
+      .shell { max-width: 1240px; margin: 0 auto; padding: 20px 16px 90px; }
+      .hero {
+        background: linear-gradient(130deg, #1e2f3a 0%, #294858 46%, #c86c3f 100%);
+        color: #fff;
+        padding: 20px;
+        border-radius: 22px;
+        display: grid;
+        gap: 8px;
+      }
+      .hero h1 { margin: 0; font-size: clamp(1.7rem, 2.7vw, 2.8rem); }
+      .hero p { margin: 0; max-width: 72ch; color: rgba(255, 255, 255, 0.9); }
+      .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      .badge {
+        border: 1px solid rgba(255, 255, 255, 0.42);
+        border-radius: 999px;
+        padding: 7px 11px;
+        font-size: 0.82rem;
+      }
+      .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; margin-top: 14px; }
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel);
+        padding: 14px;
+        box-shadow: 0 10px 26px rgba(21, 37, 48, 0.08);
+      }
+      .panel h2 { margin: 0 0 10px; font-size: 1.1rem; }
+      .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+      .kpi {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 10px;
+      }
+      .kpi .label { color: var(--muted); font-size: 0.8rem; }
+      .kpi .value { margin-top: 4px; font-size: 1.25rem; font-weight: 800; }
+      .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+      .tab-btn {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        color: var(--ink);
+        padding: 8px 10px;
+        cursor: pointer;
+      }
+      .tab-btn.active { background: #1f4e64; color: #fff; border-color: #1f4e64; }
+      .tab { display: none; }
+      .tab.active { display: block; }
+      form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      label { display: grid; gap: 4px; font-size: 0.87rem; color: var(--muted); }
+      input, select, textarea {
+        width: 100%;
+        border: 1px solid #cfc7b5;
+        border-radius: 9px;
+        padding: 9px 10px;
+        font: inherit;
+        color: var(--ink);
+        background: #fff;
+      }
+      textarea { min-height: 74px; resize: vertical; }
+      .full { grid-column: 1 / -1; }
+      .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+      button.action {
+        border: 0;
+        border-radius: 9px;
+        padding: 9px 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .primary { background: var(--brand); color: #fff; }
+      .secondary { background: var(--brand-2); color: #fff; }
+      .neutral { background: #ece7da; color: #16222b; }
+      .list { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+      .item {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+      }
+      .item .head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+      .item .title { font-weight: 700; }
+      .item .sub { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+      .item .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+      .chip {
+        border-radius: 999px;
+        border: 1px solid #d7d2c2;
+        padding: 4px 8px;
+        font-size: 0.78rem;
+        background: #f8f6ef;
+      }
+      .success { color: var(--ok); }
+      .warning { color: var(--warn); }
+      .doc-preview {
+        border: 1px dashed #c8bea8;
+        border-radius: 11px;
+        padding: 10px;
+        background: #fcfaf4;
+        margin-top: 8px;
+      }
+      .footer-note {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #13212a;
+        color: #d5e2ea;
+        padding: 9px 14px;
+        font-size: 0.85rem;
+      }
+      @media (max-width: 980px) {
+        .grid { grid-template-columns: 1fr; }
+        .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        form { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section class="hero">
+        <h1>TradieSuite Full Platform Simulator</h1>
+        <p>
+          Simulation for booking, dispatch calendar, geofence-triggered clocking, quoting,
+          invoicing, payment tracking, branding, and integration setup for trades businesses.
+        </p>
+        <div class="badge-row">
+          <span class="badge">Field Teams</span>
+          <span class="badge">Office Dispatch</span>
+          <span class="badge">MYOB/Xero Ready</span>
+          <span class="badge">Google + Microsoft Calendar</span>
+          <span class="badge">Geo Time Clock</span>
+        </div>
+      </section>
+
+      <section class="kpis" id="kpis"></section>
+
+      <div class="tabs" id="tabs">
+        <button class="tab-btn active" data-tab="booking">Booking + Calendar</button>
+        <button class="tab-btn" data-tab="time">Time + Geofence</button>
+        <button class="tab-btn" data-tab="quotes">Quotes + Invoices</button>
+        <button class="tab-btn" data-tab="integrations">Integrations</button>
+        <button class="tab-btn" data-tab="branding">Branding</button>
+      </div>
+
+      <div class="grid">
+        <section class="panel tab active" id="booking">
+          <h2>Book Job and Create Calendar Event</h2>
+          <form id="bookingForm">
+            <label>Customer name<input required name="customer" placeholder="Acme Plumbing" /></label>
+            <label>Job title<input required name="title" placeholder="Hot water service replacement" /></label>
+            <label class="full">Address<input required name="address" placeholder="14 River St, Sydney" /></label>
+            <label>Date<input required type="date" name="date" /></label>
+            <label>Start time<input required type="time" name="start" value="07:00" /></label>
+            <label>Duration (hours)<input required type="number" step="0.5" min="0.5" name="duration" value="3" /></label>
+            <label>Geofence radius (m)<input required type="number" min="25" max="1000" name="radius" value="100" /></label>
+            <label>Assigned worker
+              <select name="worker">
+                <option>Alex - Mobile Mechanic</option>
+                <option>Jules - Plumber</option>
+                <option>Tane - Site Foreman</option>
+              </select>
+            </label>
+            <div class="full actions">
+              <button class="action primary" type="submit">Create booking</button>
+              <button class="action neutral" id="seedDay" type="button">Seed sample day</button>
+            </div>
+          </form>
+          <ul class="list" id="bookingList"></ul>
+        </section>
+
+        <section class="panel tab" id="time">
+          <h2>Geofence Time Tracking Simulation</h2>
+          <p style="margin:0 0 8px;color:var(--muted)">
+            Use enter/exit actions on a job to simulate device movement and automatic clocking.
+          </p>
+          <ul class="list" id="timeList"></ul>
+          <h2 style="margin-top:14px">Timesheet Summary</h2>
+          <ul class="list" id="timesheetList"></ul>
+        </section>
+
+        <section class="panel tab" id="quotes">
+          <h2>Create Quote / Invoice</h2>
+          <form id="quoteForm">
+            <label>Linked job
+              <select required name="job"></select>
+            </label>
+            <label>Description<input required name="description" placeholder="Labour + materials" /></label>
+            <label>Quantity<input required type="number" min="1" step="1" name="quantity" value="1" /></label>
+            <label>Unit price<input required type="number" min="0" step="0.01" name="unitPrice" value="480" /></label>
+            <label>Tax rate %<input required type="number" min="0" step="0.01" name="tax" value="10" /></label>
+            <div class="full actions">
+              <button class="action primary" type="submit">Create quote</button>
+              <button class="action secondary" id="invoiceFromQuote" type="button">Convert selected quote to invoice</button>
+            </div>
+          </form>
+          <ul class="list" id="quoteList"></ul>
+          <h2 style="margin-top:14px">Invoices + Payments</h2>
+          <ul class="list" id="invoiceList"></ul>
+        </section>
+
+        <section class="panel tab" id="integrations">
+          <h2>Calendar + Accounting Connectors</h2>
+          <form id="integrationForm">
+            <label>Calendar provider
+              <select name="calendarProvider">
+                <option value="google">Google Calendar</option>
+                <option value="microsoft">Microsoft Outlook</option>
+              </select>
+            </label>
+            <label>Accounting provider
+              <select name="accountingProvider">
+                <option value="xero">Xero</option>
+                <option value="myob">MYOB</option>
+                <option value="quickbooks">QuickBooks</option>
+              </select>
+            </label>
+            <label class="full">Connection label<input name="label" placeholder="Main office account" /></label>
+            <div class="full actions">
+              <button class="action secondary" type="submit">Connect providers</button>
+              <button class="action neutral" id="runSync" type="button">Queue sync run</button>
+            </div>
+          </form>
+          <ul class="list" id="integrationList"></ul>
+        </section>
+
+        <section class="panel tab" id="branding">
+          <h2>Business Branding and Templates</h2>
+          <form id="brandingForm">
+            <label>Business name<input name="businessName" value="TradieSuite Demo Pty Ltd" /></label>
+            <label>Logo URL<input name="logoUrl" placeholder="https://example.com/logo.png" /></label>
+            <label>Primary color<input name="primary" type="color" value="#b85e2f" /></label>
+            <label>Header text<input name="header" value="Service You Can Count On" /></label>
+            <label class="full">Footer text<input name="footer" value="ABN 00 000 000 000 | Terms apply" /></label>
+            <label class="full">Invoice notes<textarea name="invoiceNotes">Payment due within 7 days. Thank you for your business.</textarea></label>
+            <div class="full actions">
+              <button class="action primary" type="submit">Apply branding</button>
+            </div>
+          </form>
+          <div class="doc-preview" id="docPreview"></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Simulation only: demonstrates end-to-end tradie workflow and automation behavior. Data is stored in browser local storage.
+    </div>
+
+    <script>
+      const STORE_KEY = "tradiesuite-simulator-v1";
+      const now = new Date();
+      const todayISO = now.toISOString().slice(0, 10);
+
+      const defaultState = {
+        jobs: [],
+        clocks: [],
+        quotes: [],
+        invoices: [],
+        integrations: [],
+        syncRuns: [],
+        branding: {
+          businessName: "TradieSuite Demo Pty Ltd",
+          logoUrl: "",
+          primary: "#b85e2f",
+          header: "Service You Can Count On",
+          footer: "ABN 00 000 000 000 | Terms apply",
+          invoiceNotes: "Payment due within 7 days. Thank you for your business.",
+        },
+      };
+
+      const state = loadState();
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORE_KEY);
+          if (!raw) return structuredClone(defaultState);
+          const parsed = JSON.parse(raw);
+          return {
+            ...structuredClone(defaultState),
+            ...parsed,
+            branding: { ...defaultState.branding, ...(parsed.branding || {}) },
+          };
+        } catch {
+          return structuredClone(defaultState);
+        }
+      }
+
+      function saveState() {
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      }
+
+      function id(prefix) {
+        return prefix + "-" + Math.random().toString(36).slice(2, 10);
+      }
+
+      function dollars(n) {
+        return Number(n).toLocaleString(undefined, { style: "currency", currency: "AUD" });
+      }
+
+      function minutesBetween(a, b) {
+        return Math.max(0, Math.round((new Date(b) - new Date(a)) / 60000));
+      }
+
+      function renderKPIs() {
+        const active = state.clocks.filter((c) => c.status === "open").length;
+        const bookedToday = state.jobs.filter((j) => j.date === todayISO).length;
+        const invoiceDue = state.invoices.reduce((acc, inv) => acc + inv.amountDue, 0);
+        const billable = state.clocks
+          .filter((c) => c.status === "closed")
+          .reduce((acc, c) => acc + c.minutes, 0);
+
+        document.getElementById("kpis").innerHTML = [
+          ["Jobs booked today", String(bookedToday)],
+          ["Active job clocks", String(active)],
+          ["Outstanding invoices", dollars(invoiceDue)],
+          ["Closed billable hours", (billable / 60).toFixed(2) + "h"],
+        ]
+          .map(([label, value]) => `\n            <article class="kpi">\n              <div class="label">${label}</div>\n              <div class="value">${value}</div>\n            </article>`)
+          .join("");
+      }
+
+      function renderBooking() {
+        const list = document.getElementById("bookingList");
+        if (!state.jobs.length) {
+          list.innerHTML = '<li class="item"><div class="sub">No bookings yet. Create a job to start.</div></li>';
+          return;
+        }
+        list.innerHTML = state.jobs
+          .slice()
+          .reverse()
+          .map((job) => `
+            <li class="item">
+              <div class="head">
+                <div class="title">${job.title}</div>
+                <div class="chip">${job.customer}</div>
+              </div>
+              <div class="sub">${job.address}</div>
+              <div class="row">
+                <span class="chip">${job.date} ${job.start}</span>
+                <span class="chip">${job.duration}h</span>
+                <span class="chip">Radius ${job.radius}m</span>
+                <span class="chip">${job.worker}</span>
+                <span class="chip ${job.status === "scheduled" ? "success" : "warning"}">${job.status}</span>
+              </div>
+            </li>`)
+          .join("");
+      }
+
+      function renderTime() {
+        const list = document.getElementById("timeList");
+        if (!state.jobs.length) {
+          list.innerHTML = '<li class="item"><div class="sub">Bookings appear here for geofence simulation.</div></li>';
+        } else {
+          list.innerHTML = state.jobs
+            .map((job) => {
+              const openClock = state.clocks.find((c) => c.jobId === job.id && c.status === "open");
+              return `
+                <li class="item">
+                  <div class="head">
+                    <div class="title">${job.title}</div>
+                    <div class="chip">${openClock ? "Clock Open" : "Clock Closed"}</div>
+                  </div>
+                  <div class="sub">${job.address}</div>
+                  <div class="row">
+                    <button class="action secondary" data-enter="${job.id}">Simulate geofence enter</button>
+                    <button class="action neutral" data-exit="${job.id}">Simulate geofence exit</button>
+                  </div>
+                </li>`;
+            })
+            .join("");
+        }
+
+        const grouped = {};
+        state.clocks.forEach((c) => {
+          if (!grouped[c.worker]) grouped[c.worker] = 0;
+          grouped[c.worker] += c.minutes || 0;
+        });
+        const ts = document.getElementById("timesheetList");
+        const workers = Object.keys(grouped);
+        ts.innerHTML = workers.length
+          ? workers
+              .map(
+                (w) => `<li class="item"><div class="head"><div class="title">${w}</div><div class="chip">${(grouped[w] / 60).toFixed(2)}h</div></div></li>`
+              )
+              .join("")
+          : '<li class="item"><div class="sub">No time tracked yet.</div></li>';
+
+        list.querySelectorAll("[data-enter]").forEach((btn) => {
+          btn.addEventListener("click", () => geofenceEnter(btn.dataset.enter));
+        });
+        list.querySelectorAll("[data-exit]").forEach((btn) => {
+          btn.addEventListener("click", () => geofenceExit(btn.dataset.exit));
+        });
+      }
+
+      function geofenceEnter(jobId) {
+        const job = state.jobs.find((j) => j.id === jobId);
+        if (!job) return;
+        const already = state.clocks.find((c) => c.jobId === jobId && c.status === "open");
+        if (already) return;
+        state.clocks.push({
+          id: id("clk"),
+          jobId,
+          worker: job.worker,
+          startAt: new Date().toISOString(),
+          endAt: null,
+          minutes: 0,
+          source: "geofence_auto",
+          status: "open",
+        });
+        job.status = "in_progress";
+        saveState();
+        renderAll();
+      }
+
+      function geofenceExit(jobId) {
+        const job = state.jobs.find((j) => j.id === jobId);
+        if (!job) return;
+        const openClock = state.clocks.find((c) => c.jobId === jobId && c.status === "open");
+        if (!openClock) return;
+        openClock.endAt = new Date().toISOString();
+        openClock.minutes = minutesBetween(openClock.startAt, openClock.endAt);
+        openClock.status = "closed";
+        job.status = "completed";
+        saveState();
+        renderAll();
+      }
+
+      function renderQuotes() {
+        const jobSelect = document.querySelector("#quoteForm select[name='job']");
+        jobSelect.innerHTML = state.jobs.length
+          ? state.jobs.map((j) => `<option value="${j.id}">${j.title} (${j.customer})</option>`).join("")
+          : '<option value="">No jobs available</option>';
+
+        const quoteList = document.getElementById("quoteList");
+        quoteList.innerHTML = state.quotes.length
+          ? state.quotes
+              .slice()
+              .reverse()
+              .map(
+                (q) => `
+              <li class="item">
+                <div class="head"><div class="title">${q.quoteNumber}</div><div class="chip">${q.status}</div></div>
+                <div class="sub">${q.jobTitle}</div>
+                <div class="row">
+                  <span class="chip">Subtotal ${dollars(q.subtotal)}</span>
+                  <span class="chip">Tax ${dollars(q.taxTotal)}</span>
+                  <span class="chip">Total ${dollars(q.total)}</span>
+                </div>
+              </li>`
+              )
+              .join("")
+          : '<li class="item"><div class="sub">No quotes created yet.</div></li>';
+
+        const invList = document.getElementById("invoiceList");
+        invList.innerHTML = state.invoices.length
+          ? state.invoices
+              .slice()
+              .reverse()
+              .map(
+                (inv) => `
+                <li class="item">
+                  <div class="head"><div class="title">${inv.invoiceNumber}</div><div class="chip">${inv.status}</div></div>
+                  <div class="sub">${inv.jobTitle}</div>
+                  <div class="row">
+                    <span class="chip">Total ${dollars(inv.total)}</span>
+                    <span class="chip">Paid ${dollars(inv.amountPaid)}</span>
+                    <span class="chip">Due ${dollars(inv.amountDue)}</span>
+                    <button class="action neutral" data-pay="${inv.id}">Add payment $100</button>
+                  </div>
+                </li>`
+              )
+              .join("")
+          : '<li class="item"><div class="sub">No invoices created yet.</div></li>';
+
+        invList.querySelectorAll("[data-pay]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const inv = state.invoices.find((i) => i.id === btn.dataset.pay);
+            if (!inv) return;
+            inv.amountPaid = Number((inv.amountPaid + 100).toFixed(2));
+            inv.amountDue = Number(Math.max(0, inv.total - inv.amountPaid).toFixed(2));
+            inv.status = inv.amountDue === 0 ? "paid" : "partially_paid";
+            saveState();
+            renderAll();
+          });
+        });
+      }
+
+      function renderIntegrations() {
+        const list = document.getElementById("integrationList");
+        const merged = state.integrations.slice().reverse();
+        list.innerHTML = merged.length
+          ? merged
+              .map(
+                (it) => `
+              <li class="item">
+                <div class="head"><div class="title">${it.label || "Connector"}</div><div class="chip success">Connected</div></div>
+                <div class="row">
+                  <span class="chip">Calendar: ${it.calendarProvider}</span>
+                  <span class="chip">Accounting: ${it.accountingProvider}</span>
+                  <span class="chip">Last sync: ${it.lastSync || "Never"}</span>
+                </div>
+              </li>`
+              )
+              .join("")
+          : '<li class="item"><div class="sub">No integration connections yet.</div></li>';
+      }
+
+      function renderBranding() {
+        const b = state.branding;
+        const p = document.getElementById("docPreview");
+        p.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+            <div>
+              <div style="font-size:1.05rem;font-weight:800;color:${b.primary}">${b.businessName}</div>
+              <div style="font-size:0.85rem;color:#43525a">${b.header}</div>
+            </div>
+            <div style="font-size:0.75rem;color:#6b787f">${b.logoUrl ? "Logo linked" : "No logo URL"}</div>
+          </div>
+          <hr style="border:none;border-top:1px solid #ddd1b7;margin:10px 0" />
+          <div style="font-size:0.86rem">Invoice template note: ${b.invoiceNotes}</div>
+          <div style="margin-top:9px;font-size:0.78rem;color:#68777e">${b.footer}</div>`;
+      }
+
+      function renderAll() {
+        renderKPIs();
+        renderBooking();
+        renderTime();
+        renderQuotes();
+        renderIntegrations();
+        renderBranding();
+      }
+
+      document.getElementById("bookingForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        state.jobs.push({
+          id: id("job"),
+          customer: String(fd.get("customer")),
+          title: String(fd.get("title")),
+          address: String(fd.get("address")),
+          date: String(fd.get("date")),
+          start: String(fd.get("start")),
+          duration: Number(fd.get("duration")),
+          radius: Number(fd.get("radius")),
+          worker: String(fd.get("worker")),
+          status: "scheduled",
+        });
+        saveState();
+        e.target.reset();
+        e.target.querySelector("input[name='date']").value = todayISO;
+        e.target.querySelector("input[name='start']").value = "07:00";
+        e.target.querySelector("input[name='duration']").value = "3";
+        e.target.querySelector("input[name='radius']").value = "100";
+        renderAll();
+      });
+
+      document.getElementById("seedDay").addEventListener("click", () => {
+        const sample = [
+          { customer: "North Ridge Build", title: "Excavator service", address: "88 Quarry Rd", start: "06:30", duration: 2.5, radius: 120, worker: "Alex - Mobile Mechanic" },
+          { customer: "City Homes", title: "Pipe reroute", address: "41 Grove Ave", start: "10:00", duration: 4, radius: 85, worker: "Jules - Plumber" },
+          { customer: "BlueSteel Civil", title: "Site walk and markings", address: "2 Dockline Way", start: "14:30", duration: 2, radius: 150, worker: "Tane - Site Foreman" },
+        ];
+        sample.forEach((s) => {
+          state.jobs.push({ id: id("job"), ...s, date: todayISO, status: "scheduled" });
+        });
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById("quoteForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const job = state.jobs.find((j) => j.id === fd.get("job"));
+        if (!job) return;
+        const qty = Number(fd.get("quantity"));
+        const unitPrice = Number(fd.get("unitPrice"));
+        const tax = Number(fd.get("tax"));
+        const subtotal = Number((qty * unitPrice).toFixed(2));
+        const taxTotal = Number((subtotal * (tax / 100)).toFixed(2));
+        const total = Number((subtotal + taxTotal).toFixed(2));
+        state.quotes.push({
+          id: id("q"),
+          quoteNumber: "Q-" + String(Date.now()).slice(-8),
+          status: "draft",
+          jobId: job.id,
+          jobTitle: job.title,
+          description: String(fd.get("description")),
+          subtotal,
+          taxTotal,
+          total,
+        });
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById("invoiceFromQuote").addEventListener("click", () => {
+        const quote = state.quotes[state.quotes.length - 1];
+        if (!quote) return;
+        quote.status = "accepted";
+        state.invoices.push({
+          id: id("inv"),
+          invoiceNumber: "INV-" + String(Date.now()).slice(-8),
+          status: "issued",
+          quoteId: quote.id,
+          jobId: quote.jobId,
+          jobTitle: quote.jobTitle,
+          total: quote.total,
+          amountPaid: 0,
+          amountDue: quote.total,
+        });
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById("integrationForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        state.integrations.push({
+          id: id("int"),
+          calendarProvider: String(fd.get("calendarProvider")),
+          accountingProvider: String(fd.get("accountingProvider")),
+          label: String(fd.get("label")),
+          lastSync: null,
+        });
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById("runSync").addEventListener("click", () => {
+        const latest = state.integrations[state.integrations.length - 1];
+        if (!latest) return;
+        latest.lastSync = new Date().toLocaleString();
+        state.syncRuns.push({ id: id("sync"), at: new Date().toISOString(), target: latest.id });
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById("brandingForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        state.branding = {
+          businessName: String(fd.get("businessName")),
+          logoUrl: String(fd.get("logoUrl")),
+          primary: String(fd.get("primary")),
+          header: String(fd.get("header")),
+          footer: String(fd.get("footer")),
+          invoiceNotes: String(fd.get("invoiceNotes")),
+        };
+        saveState();
+        renderAll();
+      });
+
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const tab = btn.dataset.tab;
+          document.querySelectorAll(".tab").forEach((el) => el.classList.remove("active"));
+          document.getElementById(tab).classList.add("active");
+        });
+      });
+
+      document.querySelector("#bookingForm input[name='date']").value = todayISO;
+      renderAll();
+    </script>
+  </body>
+</html>
