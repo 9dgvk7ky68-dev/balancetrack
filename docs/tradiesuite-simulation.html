@@ -44,6 +44,27 @@
         padding: 7px 11px;
         font-size: 0.82rem;
       }
+      .hero-controls {
+        margin-top: 10px;
+        display: flex;
+        gap: 10px;
+        align-items: end;
+        flex-wrap: wrap;
+      }
+      .hero-controls label {
+        color: rgba(255, 255, 255, 0.92);
+        font-size: 0.8rem;
+        gap: 4px;
+      }
+      .hero-controls select {
+        min-width: 260px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+      }
+      .hero-controls option {
+        color: #13202a;
+      }
       .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; margin-top: 14px; }
       .panel {
         border: 1px solid var(--line);
@@ -156,6 +177,12 @@
           <span class="badge">MYOB/Xero Ready</span>
           <span class="badge">Google + Microsoft Calendar</span>
           <span class="badge">Geo Time Clock</span>
+        </div>
+        <div class="hero-controls">
+          <label>
+            Billing currency
+            <select id="currencySelect" aria-label="Billing currency"></select>
+          </label>
         </div>
       </section>
 
@@ -276,6 +303,48 @@
       const STORE_KEY = "tradiesuite-simulator-v1";
       const now = new Date();
       const todayISO = now.toISOString().slice(0, 10);
+      const MAJOR_CURRENCIES = [
+        ["AUD", "Australian Dollar"],
+        ["NZD", "New Zealand Dollar"],
+        ["USD", "US Dollar"],
+        ["CAD", "Canadian Dollar"],
+        ["GBP", "British Pound"],
+        ["EUR", "Euro"],
+        ["CHF", "Swiss Franc"],
+        ["SEK", "Swedish Krona"],
+        ["NOK", "Norwegian Krone"],
+        ["DKK", "Danish Krone"],
+        ["JPY", "Japanese Yen"],
+        ["CNY", "Chinese Yuan"],
+        ["HKD", "Hong Kong Dollar"],
+        ["SGD", "Singapore Dollar"],
+        ["INR", "Indian Rupee"],
+        ["KRW", "South Korean Won"],
+        ["THB", "Thai Baht"],
+        ["MYR", "Malaysian Ringgit"],
+        ["IDR", "Indonesian Rupiah"],
+        ["PHP", "Philippine Peso"],
+        ["VND", "Vietnamese Dong"],
+        ["AED", "UAE Dirham"],
+        ["SAR", "Saudi Riyal"],
+        ["QAR", "Qatari Riyal"],
+        ["ZAR", "South African Rand"],
+        ["EGP", "Egyptian Pound"],
+        ["NGN", "Nigerian Naira"],
+        ["KES", "Kenyan Shilling"],
+        ["BRL", "Brazilian Real"],
+        ["MXN", "Mexican Peso"],
+        ["ARS", "Argentine Peso"],
+        ["CLP", "Chilean Peso"],
+        ["COP", "Colombian Peso"],
+        ["PEN", "Peruvian Sol"],
+        ["TRY", "Turkish Lira"],
+        ["PLN", "Polish Zloty"],
+        ["CZK", "Czech Koruna"],
+        ["HUF", "Hungarian Forint"],
+        ["RON", "Romanian Leu"],
+        ["RUB", "Russian Ruble"],
+      ];
 
       const defaultState = {
         jobs: [],
@@ -284,6 +353,7 @@
         invoices: [],
         integrations: [],
         syncRuns: [],
+        currency: "AUD",
         branding: {
           businessName: "TradieSuite Demo Pty Ltd",
           logoUrl: "",
@@ -295,6 +365,7 @@
       };
 
       const state = loadState();
+      const currencySelect = document.getElementById("currencySelect");
 
       function loadState() {
         try {
@@ -315,12 +386,24 @@
         localStorage.setItem(STORE_KEY, JSON.stringify(state));
       }
 
+      function normalizeCurrency(rawCurrency) {
+        const code = String(rawCurrency || "AUD").toUpperCase();
+        return MAJOR_CURRENCIES.some(([item]) => item === code) ? code : "AUD";
+      }
+
+      function renderCurrencyOptions() {
+        currencySelect.innerHTML = MAJOR_CURRENCIES
+          .map(([code, label]) => `<option value="${code}">${code} - ${label}</option>`)
+          .join("");
+        currencySelect.value = state.currency;
+      }
+
       function id(prefix) {
         return prefix + "-" + Math.random().toString(36).slice(2, 10);
       }
 
       function dollars(n) {
-        return Number(n).toLocaleString(undefined, { style: "currency", currency: "AUD" });
+        return Number(n).toLocaleString(undefined, { style: "currency", currency: state.currency });
       }
 
       function minutesBetween(a, b) {
@@ -492,7 +575,7 @@
                     <span class="chip">Total ${dollars(inv.total)}</span>
                     <span class="chip">Paid ${dollars(inv.amountPaid)}</span>
                     <span class="chip">Due ${dollars(inv.amountDue)}</span>
-                    <button class="action neutral" data-pay="${inv.id}">Add payment $100</button>
+                    <button class="action neutral" data-pay="${inv.id}">Add payment ${dollars(100)}</button>
                   </div>
                 </li>`
               )
@@ -545,6 +628,7 @@
           </div>
           <hr style="border:none;border-top:1px solid #ddd1b7;margin:10px 0" />
           <div style="font-size:0.86rem">Invoice template note: ${b.invoiceNotes}</div>
+            <div style="margin-top:6px;font-size:0.82rem;color:#42535f">Currency: ${state.currency}</div>
           <div style="margin-top:9px;font-size:0.78rem;color:#68777e">${b.footer}</div>`;
       }
 
@@ -677,6 +761,12 @@
         renderAll();
       });
 
+      currencySelect.addEventListener("change", () => {
+        state.currency = normalizeCurrency(currencySelect.value);
+        saveState();
+        renderAll();
+      });
+
       document.querySelectorAll(".tab-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
@@ -687,6 +777,8 @@
         });
       });
 
+      state.currency = normalizeCurrency(state.currency);
+      renderCurrencyOptions();
       document.querySelector("#bookingForm input[name='date']").value = todayISO;
       renderAll();
     </script>
