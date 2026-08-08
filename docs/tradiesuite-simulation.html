@@ -195,6 +195,7 @@
         <button class="tab-btn" data-tab="quotes">Quotes + Invoices</button>
         <button class="tab-btn" data-tab="integrations">Integrations</button>
         <button class="tab-btn" data-tab="branding">Branding</button>
+        <button class="tab-btn" data-tab="support">Support</button>
       </div>
 
       <div class="grid">
@@ -228,6 +229,34 @@
           <ul class="list" id="setupStatusList"></ul>
           <h2 style="margin-top:14px">Recent Calendar Events</h2>
           <ul class="list" id="calendarEventList"></ul>
+          <h2 style="margin-top:14px">Accounting Setup and Login</h2>
+          <p style="margin:0 0 8px;color:var(--muted)">
+            Connect Xero, MYOB, or other accounting providers and automatically queue invoice sync.
+          </p>
+          <form id="accountingSetupForm">
+            <label>Accounting provider
+              <select name="provider">
+                <option value="xero">Xero</option>
+                <option value="myob">MYOB</option>
+                <option value="quickbooks">QuickBooks</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label>Accounting login email
+              <input required name="accountEmail" type="email" placeholder="accounts@yourbusiness.com" />
+            </label>
+            <label class="full">
+              <span>
+                <input id="autoSyncInvoices" name="autoSyncInvoices" type="checkbox" checked />
+                Automatically queue invoice sync to accounting provider
+              </span>
+            </label>
+            <div class="full actions">
+              <button class="action secondary" type="submit">Connect accounting</button>
+              <button class="action neutral" id="disconnectAccountingBtn" type="button">Disconnect</button>
+            </div>
+          </form>
+          <ul class="list" id="accountingStatusList"></ul>
         </section>
 
         <section class="panel tab" id="booking">
@@ -325,6 +354,42 @@
           </form>
           <div class="doc-preview" id="docPreview"></div>
         </section>
+
+        <section class="panel tab" id="support">
+          <h2>Support and Issue Reporting</h2>
+          <p style="margin:0 0 8px;color:var(--muted)">
+            Send issues to your designated IT administrator email address with one click.
+          </p>
+          <form id="supportForm">
+            <label>Designated IT administrator email
+              <input required name="itEmail" type="email" placeholder="it-support@yourbusiness.com" />
+            </label>
+            <label>Your name
+              <input required name="reporterName" type="text" placeholder="Site Supervisor" />
+            </label>
+            <label>Your email
+              <input required name="reporterEmail" type="email" placeholder="you@yourbusiness.com" />
+            </label>
+            <label>Issue severity
+              <select name="severity">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </label>
+            <label class="full">Issue summary
+              <input required name="summary" type="text" placeholder="Unable to sync invoice to Xero" />
+            </label>
+            <label class="full">Issue details
+              <textarea name="details" placeholder="Describe what happened and expected result"></textarea>
+            </label>
+            <div class="full actions">
+              <button class="action primary" type="submit">Email IT support</button>
+            </div>
+          </form>
+          <ul class="list" id="supportStatusList"></ul>
+        </section>
       </div>
     </div>
 
@@ -395,6 +460,18 @@
           bookingsSynced: 0,
           lastSync: null,
           events: [],
+          accountingConnected: false,
+          accountingProvider: "xero",
+          accountingEmail: "",
+          autoSyncInvoices: true,
+          accountingSynced: 0,
+          accountingLastSync: null,
+          accountingEvents: [],
+        },
+        support: {
+          itEmail: "it-support@tradiesuite-demo.com",
+          lastIssueAt: null,
+          lastIssueSummary: "",
         },
         branding: {
           businessName: "TradieSuite Demo Pty Ltd",
@@ -457,10 +534,21 @@
         return map[provider] || provider;
       }
 
+      function accountingProviderLabel(provider) {
+        const map = {
+          xero: "Xero",
+          myob: "MYOB",
+          quickbooks: "QuickBooks",
+          other: "Other",
+        };
+        return map[provider] || provider;
+      }
+
       function renderSetup() {
         const setup = state.setup || defaultState.setup;
         const statusList = document.getElementById("setupStatusList");
         const eventList = document.getElementById("calendarEventList");
+        const accountingStatusList = document.getElementById("accountingStatusList");
 
         statusList.innerHTML = `
           <li class="item">
@@ -497,6 +585,22 @@
               )
               .join("")
           : '<li class="item"><div class="sub">No synced booking events yet.</div></li>';
+
+        accountingStatusList.innerHTML = `
+          <li class="item">
+            <div class="head">
+              <div class="title">Accounting connection</div>
+              <div class="chip ${setup.accountingConnected ? "success" : "warning"}">${setup.accountingConnected ? "Connected" : "Not connected"}</div>
+            </div>
+            <div class="row">
+              <span class="chip">Provider: ${accountingProviderLabel(setup.accountingProvider)}</span>
+              <span class="chip">Account: ${setup.accountingEmail || "Not set"}</span>
+              <span class="chip">Auto-sync invoices: ${setup.autoSyncInvoices ? "On" : "Off"}</span>
+              <span class="chip">Invoices synced: ${setup.accountingSynced || 0}</span>
+              <span class="chip">Last sync: ${setup.accountingLastSync || "Never"}</span>
+            </div>
+          </li>
+        `;
       }
 
       function addBookingToCalendar(job) {
@@ -514,6 +618,37 @@
         });
         setup.bookingsSynced = (setup.bookingsSynced || 0) + 1;
         setup.lastSync = new Date().toLocaleString();
+      }
+
+      function queueInvoiceAccountingSync(invoice) {
+        const setup = state.setup || defaultState.setup;
+        if (!setup.accountingConnected || !setup.autoSyncInvoices) return;
+        setup.accountingEvents.push({
+          id: id("acct"),
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          total: invoice.total,
+          queuedAt: new Date().toISOString(),
+        });
+        setup.accountingSynced = (setup.accountingSynced || 0) + 1;
+        setup.accountingLastSync = new Date().toLocaleString();
+      }
+
+      function renderSupport() {
+        const support = state.support || defaultState.support;
+        const supportStatusList = document.getElementById("supportStatusList");
+        supportStatusList.innerHTML = `
+          <li class="item">
+            <div class="head">
+              <div class="title">Support status</div>
+              <div class="chip">IT: ${support.itEmail || "Not set"}</div>
+            </div>
+            <div class="row">
+              <span class="chip">Last issue: ${support.lastIssueSummary || "None"}</span>
+              <span class="chip">Last sent: ${support.lastIssueAt || "Never"}</span>
+            </div>
+          </li>
+        `;
       }
 
       function minutesBetween(a, b) {
@@ -751,6 +886,7 @@
         renderQuotes();
         renderIntegrations();
         renderBranding();
+        renderSupport();
       }
 
       document.getElementById("bookingForm").addEventListener("submit", (e) => {
@@ -819,6 +955,31 @@
         renderAll();
       });
 
+      document.getElementById("accountingSetupForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        state.setup = {
+          ...(state.setup || defaultState.setup),
+          accountingConnected: true,
+          accountingProvider: String(fd.get("provider") || "xero"),
+          accountingEmail: String(fd.get("accountEmail") || ""),
+          autoSyncInvoices: fd.get("autoSyncInvoices") !== null,
+          accountingLastSync: new Date().toLocaleString(),
+        };
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById("disconnectAccountingBtn").addEventListener("click", () => {
+        state.setup = {
+          ...(state.setup || defaultState.setup),
+          accountingConnected: false,
+          accountingLastSync: null,
+        };
+        saveState();
+        renderAll();
+      });
+
       document.getElementById("quoteForm").addEventListener("submit", (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
@@ -849,7 +1010,7 @@
         const quote = state.quotes[state.quotes.length - 1];
         if (!quote) return;
         quote.status = "accepted";
-        state.invoices.push({
+        const invoice = {
           id: id("inv"),
           invoiceNumber: "INV-" + String(Date.now()).slice(-8),
           status: "issued",
@@ -859,9 +1020,44 @@
           total: quote.total,
           amountPaid: 0,
           amountDue: quote.total,
-        });
+        };
+        state.invoices.push(invoice);
+        queueInvoiceAccountingSync(invoice);
         saveState();
         renderAll();
+      });
+
+      document.getElementById("supportForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const itEmail = String(fd.get("itEmail") || "").trim();
+        const reporterName = String(fd.get("reporterName") || "").trim();
+        const reporterEmail = String(fd.get("reporterEmail") || "").trim();
+        const severity = String(fd.get("severity") || "Medium").trim();
+        const summary = String(fd.get("summary") || "").trim();
+        const details = String(fd.get("details") || "").trim();
+
+        const subject = encodeURIComponent(`[TradieSuite Support] ${severity} - ${summary}`);
+        const body = encodeURIComponent(
+          `Reporter: ${reporterName} (${reporterEmail})\n` +
+          `Severity: ${severity}\n` +
+          `Currency: ${state.currency}\n` +
+          `Calendar: ${providerLabel(state.setup.provider)} (${state.setup.accountEmail || "Not set"})\n` +
+          `Accounting: ${accountingProviderLabel(state.setup.accountingProvider)} (${state.setup.accountingEmail || "Not set"})\n\n` +
+          `Issue Summary:\n${summary}\n\n` +
+          `Issue Details:\n${details}\n`
+        );
+
+        state.support = {
+          ...(state.support || defaultState.support),
+          itEmail,
+          lastIssueAt: new Date().toLocaleString(),
+          lastIssueSummary: summary,
+        };
+        saveState();
+        renderAll();
+
+        window.location.href = `mailto:${encodeURIComponent(itEmail)}?subject=${subject}&body=${body}`;
       });
 
       document.getElementById("integrationForm").addEventListener("submit", (e) => {
@@ -923,12 +1119,23 @@
         ...defaultState.setup,
         ...(state.setup || {}),
         events: Array.isArray(state.setup?.events) ? state.setup.events : [],
+        accountingEvents: Array.isArray(state.setup?.accountingEvents) ? state.setup.accountingEvents : [],
+      };
+      state.support = {
+        ...defaultState.support,
+        ...(state.support || {}),
       };
       renderCurrencyOptions();
       const setupForm = document.getElementById("setupForm");
       setupForm.elements.provider.value = state.setup.provider || "google";
       setupForm.elements.accountEmail.value = state.setup.accountEmail || "";
       setupForm.elements.autoAddBookings.checked = state.setup.autoAddBookings !== false;
+      const accountingSetupForm = document.getElementById("accountingSetupForm");
+      accountingSetupForm.elements.provider.value = state.setup.accountingProvider || "xero";
+      accountingSetupForm.elements.accountEmail.value = state.setup.accountingEmail || "";
+      accountingSetupForm.elements.autoSyncInvoices.checked = state.setup.autoSyncInvoices !== false;
+      const supportForm = document.getElementById("supportForm");
+      supportForm.elements.itEmail.value = state.support.itEmail || "";
       document.querySelector("#bookingForm input[name='date']").value = todayISO;
       renderAll();
     </script>
