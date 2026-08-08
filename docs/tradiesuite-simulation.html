@@ -189,7 +189,8 @@
       <section class="kpis" id="kpis"></section>
 
       <div class="tabs" id="tabs">
-        <button class="tab-btn active" data-tab="booking">Booking + Calendar</button>
+        <button class="tab-btn active" data-tab="setup">Setup</button>
+        <button class="tab-btn" data-tab="booking">Booking + Calendar</button>
         <button class="tab-btn" data-tab="time">Time + Geofence</button>
         <button class="tab-btn" data-tab="quotes">Quotes + Invoices</button>
         <button class="tab-btn" data-tab="integrations">Integrations</button>
@@ -197,7 +198,39 @@
       </div>
 
       <div class="grid">
-        <section class="panel tab active" id="booking">
+        <section class="panel tab active" id="setup">
+          <h2>Calendar Setup and Login</h2>
+          <p style="margin:0 0 8px;color:var(--muted)">
+            Connect your preferred calendar once, then each new booking is added automatically.
+          </p>
+          <form id="setupForm">
+            <label>Preferred calendar
+              <select name="provider">
+                <option value="google">Google Calendar</option>
+                <option value="microsoft">Microsoft Outlook</option>
+                <option value="apple">Apple Calendar</option>
+              </select>
+            </label>
+            <label>Calendar login email
+              <input required name="accountEmail" type="email" placeholder="dispatch@yourbusiness.com" />
+            </label>
+            <label class="full">
+              <span>
+                <input id="autoAddBookings" name="autoAddBookings" type="checkbox" checked />
+                Automatically add new bookings to connected calendar
+              </span>
+            </label>
+            <div class="full actions">
+              <button class="action secondary" type="submit">Connect calendar</button>
+              <button class="action neutral" id="disconnectCalendarBtn" type="button">Disconnect</button>
+            </div>
+          </form>
+          <ul class="list" id="setupStatusList"></ul>
+          <h2 style="margin-top:14px">Recent Calendar Events</h2>
+          <ul class="list" id="calendarEventList"></ul>
+        </section>
+
+        <section class="panel tab" id="booking">
           <h2>Book Job and Create Calendar Event</h2>
           <form id="bookingForm">
             <label>Customer name<input required name="customer" placeholder="Acme Plumbing" /></label>
@@ -354,6 +387,15 @@
         integrations: [],
         syncRuns: [],
         currency: "AUD",
+        setup: {
+          connected: false,
+          provider: "google",
+          accountEmail: "",
+          autoAddBookings: true,
+          bookingsSynced: 0,
+          lastSync: null,
+          events: [],
+        },
         branding: {
           businessName: "TradieSuite Demo Pty Ltd",
           logoUrl: "",
@@ -406,6 +448,74 @@
         return Number(n).toLocaleString(undefined, { style: "currency", currency: state.currency });
       }
 
+      function providerLabel(provider) {
+        const map = {
+          google: "Google Calendar",
+          microsoft: "Microsoft Outlook",
+          apple: "Apple Calendar",
+        };
+        return map[provider] || provider;
+      }
+
+      function renderSetup() {
+        const setup = state.setup || defaultState.setup;
+        const statusList = document.getElementById("setupStatusList");
+        const eventList = document.getElementById("calendarEventList");
+
+        statusList.innerHTML = `
+          <li class="item">
+            <div class="head">
+              <div class="title">Calendar connection</div>
+              <div class="chip ${setup.connected ? "success" : "warning"}">${setup.connected ? "Connected" : "Not connected"}</div>
+            </div>
+            <div class="row">
+              <span class="chip">Provider: ${providerLabel(setup.provider)}</span>
+              <span class="chip">Account: ${setup.accountEmail || "Not set"}</span>
+              <span class="chip">Auto-add bookings: ${setup.autoAddBookings ? "On" : "Off"}</span>
+              <span class="chip">Bookings synced: ${setup.bookingsSynced || 0}</span>
+              <span class="chip">Last sync: ${setup.lastSync || "Never"}</span>
+            </div>
+          </li>
+        `;
+
+        const events = Array.isArray(setup.events) ? setup.events : [];
+        eventList.innerHTML = events.length
+          ? events
+              .slice()
+              .reverse()
+              .slice(0, 8)
+              .map(
+                (evt) => `
+              <li class="item">
+                <div class="head"><div class="title">${evt.title}</div><div class="chip success">Added</div></div>
+                <div class="sub">${evt.customer} - ${evt.address}</div>
+                <div class="row">
+                  <span class="chip">${evt.date} ${evt.start}</span>
+                  <span class="chip">${providerLabel(setup.provider)}</span>
+                </div>
+              </li>`
+              )
+              .join("")
+          : '<li class="item"><div class="sub">No synced booking events yet.</div></li>';
+      }
+
+      function addBookingToCalendar(job) {
+        const setup = state.setup || defaultState.setup;
+        if (!setup.connected || !setup.autoAddBookings) return;
+        setup.events.push({
+          id: id("evt"),
+          jobId: job.id,
+          title: job.title,
+          customer: job.customer,
+          address: job.address,
+          date: job.date,
+          start: job.start,
+          createdAt: new Date().toISOString(),
+        });
+        setup.bookingsSynced = (setup.bookingsSynced || 0) + 1;
+        setup.lastSync = new Date().toLocaleString();
+      }
+
       function minutesBetween(a, b) {
         return Math.max(0, Math.round((new Date(b) - new Date(a)) / 60000));
       }
@@ -449,6 +559,7 @@
                 <span class="chip">${job.duration}h</span>
                 <span class="chip">Radius ${job.radius}m</span>
                 <span class="chip">${job.worker}</span>
+                <span class="chip">${state.setup?.connected && state.setup?.autoAddBookings ? "Calendar synced" : "Local only"}</span>
                 <span class="chip ${job.status === "scheduled" ? "success" : "warning"}">${job.status}</span>
               </div>
             </li>`)
@@ -633,6 +744,7 @@
       }
 
       function renderAll() {
+        renderSetup();
         renderKPIs();
         renderBooking();
         renderTime();
@@ -644,7 +756,7 @@
       document.getElementById("bookingForm").addEventListener("submit", (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        state.jobs.push({
+        const booking = {
           id: id("job"),
           customer: String(fd.get("customer")),
           title: String(fd.get("title")),
@@ -655,7 +767,9 @@
           radius: Number(fd.get("radius")),
           worker: String(fd.get("worker")),
           status: "scheduled",
-        });
+        };
+        state.jobs.push(booking);
+        addBookingToCalendar(booking);
         saveState();
         e.target.reset();
         e.target.querySelector("input[name='date']").value = todayISO;
@@ -672,8 +786,35 @@
           { customer: "BlueSteel Civil", title: "Site walk and markings", address: "2 Dockline Way", start: "14:30", duration: 2, radius: 150, worker: "Tane - Site Foreman" },
         ];
         sample.forEach((s) => {
-          state.jobs.push({ id: id("job"), ...s, date: todayISO, status: "scheduled" });
+          const booking = { id: id("job"), ...s, date: todayISO, status: "scheduled" };
+          state.jobs.push(booking);
+          addBookingToCalendar(booking);
         });
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById("setupForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        state.setup = {
+          ...(state.setup || defaultState.setup),
+          connected: true,
+          provider: String(fd.get("provider") || "google"),
+          accountEmail: String(fd.get("accountEmail") || ""),
+          autoAddBookings: fd.get("autoAddBookings") !== null,
+          lastSync: new Date().toLocaleString(),
+        };
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById("disconnectCalendarBtn").addEventListener("click", () => {
+        state.setup = {
+          ...(state.setup || defaultState.setup),
+          connected: false,
+          lastSync: null,
+        };
         saveState();
         renderAll();
       });
@@ -778,7 +919,16 @@
       });
 
       state.currency = normalizeCurrency(state.currency);
+      state.setup = {
+        ...defaultState.setup,
+        ...(state.setup || {}),
+        events: Array.isArray(state.setup?.events) ? state.setup.events : [],
+      };
       renderCurrencyOptions();
+      const setupForm = document.getElementById("setupForm");
+      setupForm.elements.provider.value = state.setup.provider || "google";
+      setupForm.elements.accountEmail.value = state.setup.accountEmail || "";
+      setupForm.elements.autoAddBookings.checked = state.setup.autoAddBookings !== false;
       document.querySelector("#bookingForm input[name='date']").value = todayISO;
       renderAll();
     </script>
